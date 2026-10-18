@@ -140,6 +140,73 @@
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
+        /* Terms Modal Styling */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(13, 75, 99, 0.4);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+        .terms-modal {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-overlay.show .terms-modal {
+            transform: translateY(0);
+        }
+        .terms-modal h3 {
+            color: var(--brand-dark);
+            font-weight: 600;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 0.75rem;
+        }
+        .terms-content {
+            overflow-y: auto;
+            font-size: 0.9rem;
+            color: #475569;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+            padding-right: 5px;
+        }
+        .terms-content p { margin-bottom: 0.75rem; }
+        .terms-content strong { color: #1e293b; }
+        .terms-content a { color: var(--brand-primary); text-decoration: none; font-weight: 600; }
+        .terms-content a:hover { text-decoration: underline; }
+        .btn-close-modal {
+            background: var(--brand-primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            width: 100%;
+        }
+        .btn-close-modal:hover { background: var(--brand-dark); }
+
         @media (max-width: 480px) {
             body { padding: 1rem; align-items: flex-start; padding-top: 10%; }
             .login-card { padding: 1.5rem; border-radius: 16px; }
@@ -152,6 +219,22 @@
     <div id="loader">
         <div class="spinner"></div>
         <p class="mt-3 text-muted">Securing Connection...</p>
+    </div>
+
+    <div class="modal-overlay" id="termsModal">
+        <div class="terms-modal">
+            <h3>Terms of Use & License</h3>
+            <div class="terms-content">
+                <p><strong>Open Source Project:</strong> OceanRemote is an open-source, non-commercial project. It is completely free for everyone to use, modify, and distribute.</p>
+                <p><strong>Usage:</strong> This software is provided for cold-chain monitoring. You are free to use it for personal, educational, or commercial purposes.</p>
+                <p><strong>Credits:</strong> Developed and maintained by <strong>OceanRemote</strong>. All credits and rights belong to <a href="https://oceanremote.net" target="_blank">oceanremote.net</a>.</p>
+                <p><strong>Contact:</strong><br>
+                Support: <a href="mailto:support@oceanremote.net">support@oceanremote.net</a><br>
+                Admin: <a href="mailto:admin@oceanremote.net">admin@oceanremote.net</a></p>
+                <p style="margin-top: 1rem; font-size: 0.8rem; color: #94a3b8;">&copy; OceanRemote - oceanremote.net</p>
+            </div>
+            <button class="btn-close-modal" onclick="closeTerms()">I Understand</button>
+        </div>
     </div>
 
     <div class="login-card" id="loginCard">
@@ -202,7 +285,10 @@
         }
 
         function showTerms() {
-            alert("Terms of Use:\n\n1. Ownership & Rights:\nThis software and its contents are the exclusive property of OceanRemote (oceanremote.net). All rights reserved.\n\n2. Usage:\nAuthorized cold-chain monitoring only.\n\n3. Contact:\nSupport: support@oceanremote.net\nAdmin: admin@oceanremote.net\n\n© OceanRemote - oceanremote.net");
+            document.getElementById('termsModal').classList.add('show');
+        }
+        function closeTerms() {
+            document.getElementById('termsModal').classList.remove('show');
         }
     </script>
     <footer style="position:fixed;bottom:0;left:0;right:0;text-align:center;padding:12px 16px;font-size:0.78rem;color:#64748b;background:rgba(255,255,255,0.6);backdrop-filter:blur(6px);border-top:1px solid rgba(0,0,0,0.05);">
