@@ -151,11 +151,15 @@ def create_or_reload_webapp(username):
             python_version="3.10",
             virtualenv_path=Path(f"/home/{username}/.virtualenvs/oceanremote-env"),
             project_path=Path(f"/home/{username}/oceanremote-own-hosting"),
-            nuke=True,
+            nuke=False,
         )
     except Exception as e:
-        console.print(f"[red]Webapp create failed: {e}[/red]")
-        sys.exit(1)
+        msg = str(e)
+        if "already exists" in msg.lower() or "409" in msg:
+            console.print("[yellow]Webapp already exists, reloading[/yellow]")
+        else:
+            console.print(f"[red]Webapp create failed: {e}[/red]")
+            sys.exit(1)
 
     console.print("[cyan]Reloading...[/cyan]")
     app.reload()
