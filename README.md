@@ -1,4 +1,4 @@
-﻿# OceanRemote Own-Hosting
+# OceanRemote Own-Hosting
 
 Self-host your own cold-chain temperature monitoring server on **PythonAnywhere** - free tier works.
 

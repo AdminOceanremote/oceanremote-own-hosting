@@ -1,4 +1,4 @@
-﻿Django==5.2.15
+Django==5.2.15
 django-pwa==2.0.1
 django-webpush==0.3.6
 djangorestframework==3.18.3
