@@ -120,13 +120,29 @@ def build_wsgi(username):
 
 
 def write_wsgi(username):
-    path = Path(f"/var/www/{username}_pythonanywhere_com_wsgi.py")
+    path = Path(f"/var/www/{username.lower()}_pythonanywhere_com_wsgi.py")
     try:
         path.write_text(build_wsgi(username), encoding="utf-8")
         console.print(f"[green]Wrote {path}[/green]")
     except PermissionError:
         console.print(f"[red]Cannot write {path} - permission denied[/red]")
         sys.exit(1)
+
+
+def touch_wsgi(username):
+    import time
+    path = Path(f"/var/www/{username.lower()}_pythonanywhere_com_wsgi.py")
+    if not path.exists():
+        console.print(f"[yellow]WSGI not found at {path}, skipping touch[/yellow]")
+        return
+    path.touch()
+    time.sleep(2)
+    try:
+        from pythonanywhere_core.webapp import Webapp
+        Webapp(username.lower() + ".pythonanywhere.com").reload()
+        console.print("[green]Final reload triggered[/green]")
+    except Exception as e:
+        console.print(f"[yellow]Final reload skipped: {e}[/yellow]")
 
 def create_or_reload_webapp(username):
     token = os.environ.get("API_TOKEN")
@@ -196,8 +212,9 @@ def main():
     run_migrations()
     run_collectstatic()
     create_superuser(user_data)
-    write_wsgi(username)
     create_or_reload_webapp(username)
+    write_wsgi(username)
+    touch_wsgi(username)
 
     print_summary(username, user_data)
 
