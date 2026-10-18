@@ -1,0 +1,12 @@
+﻿Django==5.2.15
+django-pwa==2.0.1
+django-webpush==0.3.6
+djangorestframework==3.18.3
+cryptography==44.0.2
+py-vapid==1.9.2
+pywebpush==2.0.3
+requests==2.32.3
+whitenoise==6.8.2
+questionary==2.1.1
+rich==15.0.0
+python-dotenv==1.0.1

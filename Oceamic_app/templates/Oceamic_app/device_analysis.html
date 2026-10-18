@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}Analysis | {{ device.name|default:device.device_id }}{% endblock %}
+
+{% block content %}
+<style>
+    /* --- THEME VARIABLE ENGINE --- */
+    :root {
+        --bg-main: #0a0e14;
+        --card-bg: #0f172a;
+        --card-border: rgba(56, 189, 248, 0.2);
+        --text-main: #ffffff;
+        --text-sub: rgba(255, 255, 255, 0.4);
+        --input-bg: #1e293b;
+        --terminal-blue: #38bdf8;
+        --cold-blue: #22d3ee;
+        --safe-green: #10b981;
+        --hot-red: #f43f5e;
+        --overlay-bg: rgba(15, 23, 42, 0.9);
+    }
+
+    [data-theme="light"] {
+        --bg-main: #f1f5f9;
+        --card-bg: #ffffff;
+        --card-border: #e2e8f0;
+        --text-main: #1e293b;
+        --text-sub: #64748b;
+        --input-bg: #ffffff;
+        --terminal-blue: #0284c7;
+        --overlay-bg: rgba(255, 255, 255, 0.9);
+    }
+
+    body { background-color: var(--bg-main); transition: background 0.3s ease; color: var(--text-main); }
+    .analysis-container { padding: 10px; max-width: 1200px; margin: 0 auto; overflow-x: hidden; }
+
+    /* --- TOP HEADER --- */
+    .top-header-section { margin-bottom: 20px; text-align: center; }
+    .device-title { color: var(--terminal-blue); font-weight: 800; font-size: 1.2rem; text-transform: uppercase; margin-bottom: 10px; }
+    .calendar-row { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
+
+    /* --- THE CHART CARD --- */
+    .chart-card {
+        background: var(--card-bg);
+        border-radius: 20px;
+        padding: 15px;
+        border: 1px solid var(--card-border);
+        display: flex; 
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Fullscreen logic from original */
+    .chart-card:fullscreen {
+        width: 100vw; height: 100vh;
+        padding: 20px; border-radius: 0;
+        background: var(--bg-main);
+    }
+
+    /* --- CYBER GLOW BUTTONS --- */
+    @keyframes blue-pulse {
+        0%, 100% { box-shadow: 0 0 5px var(--terminal-blue); transform: scale(1); }
+        50% { box-shadow: 0 0 15px var(--terminal-blue); transform: scale(1.02); }
+    }
+
+    .btn-cyber-glow {
+        background: transparent !important;
+        border: 2px solid var(--terminal-blue);
+        color: var(--terminal-blue) !important;
+        padding: 8px 15px; border-radius: 10px;
+        font-weight: 800; font-size: 0.7rem;
+        text-transform: uppercase;
+        cursor: pointer; animation: blue-pulse 2s infinite;
+        align-self: flex-start; margin-bottom: 10px;
+        flex-shrink: 0;
+    }
+
+    .input-date-custom {
+        background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text-main);
+        padding: 8px; border-radius: 8px; font-family: monospace; font-size: 0.8rem;
+    }
+
+    .btn-execute {
+        background: var(--terminal-blue); color: #fff; border: none;
+        padding: 8px 15px; border-radius: 8px; font-weight: 900; font-size: 0.8rem;
+    }
+
+    /* --- CHART WRAPPER --- */
+    .chart-wrapper { position: relative; width: 100%; height: 300px; flex-grow: 1; min-height: 0; }
+    @media (min-width: 768px) { .chart-wrapper { height: 450px; } }
+
+    /* --- DYNAMIC THERMAL HUD --- */
+    .stats-footer {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        gap: 8px; margin-top: 15px; padding-top: 15px; 
+        border-top: 1px solid var(--card-border);
+        flex-shrink: 0;
+    }
+    
+    .stat-item {
+        padding: 10px 5px; border-radius: 12px; background: rgba(128,128,128,0.05);
+        text-align: center; font-family: monospace; font-weight: 800;
+        font-size: 0.9rem; transition: all 0.5s ease;
+    }
+    .stat-label-small { font-size: 0.55rem; opacity: 0.7; display: block; margin-bottom: 2px; color: var(--text-sub); }
+
+    /* --- LOADING OVERLAY --- */
+    #loadingOverlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: var(--overlay-bg); display: none; 
+        flex-direction: column; align-items: center; justify-content: center;
+        z-index: 100;
+    }
+    .charging-bar { width: 140px; height: 3px; background: rgba(56, 189, 248, 0.1); overflow: hidden; }
+    .charging-progress { width: 40%; height: 100%; background: var(--terminal-blue); animation: charge 1s infinite; }
+    @keyframes charge { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+
+    @media print { .no-print { display: none !important; } }
+</style>
+
+<div class="analysis-container">
+    <div class="top-header-section no-print">
+        <h1 class="device-title">{{ device.name|default:device.device_id }}</h1>
+        <div class="calendar-row">
+            <input type="date" id="startDate" class="input-date-custom">
+            <input type="date" id="endDate" class="input-date-custom">
+            <button onclick="performAnalysis()" class="btn-execute">SCAN_SYSTEM</button>
+        </div>
+    </div>
+
+    <div class="chart-card" id="fullscreenTarget">
+        <div id="loadingOverlay">
+            <div class="charging-bar"><div class="charging-progress"></div></div>
+            <div style="color:var(--terminal-blue); font-family:monospace; font-size:0.6rem; margin-top:10px;">SYNCING_CORES...</div>
+        </div>
+
+        <button class="btn-cyber-glow no-print" onclick="toggleFullscreen()">
+            MAXIMIZE_VISUALS
+        </button>
+
+        <div class="chart-wrapper">
+            <canvas id="chartGCanvas"></canvas>
+        </div>
+
+        <div class="stats-footer">
+            <div class="stat-item" id="box-min">
+                <span class="stat-label-small">MIN</span>
+                <span id="minVal">--</span>
+            </div>
+            <div class="stat-item" id="box-avg">
+                <span class="stat-label-small">AVG</span>
+                <span id="avgVal">--</span>
+            </div>
+            <div class="stat-item" id="box-max">
+                <span class="stat-label-small">MAX</span>
+                <span id="maxVal">--</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    let myChart;
+
+    function getThermalColor(temp) {
+        const t = parseFloat(temp);
+        const styles = getComputedStyle(document.body);
+        if (t < 2) return styles.getPropertyValue('--cold-blue').trim();
+        if (t >= 2 && t <= 8) return styles.getPropertyValue('--safe-green').trim();
+        return styles.getPropertyValue('--hot-red').trim();
+    }
+
+    function toggleFullscreen() {
+        const elem = document.getElementById('fullscreenTarget');
+        if (!document.fullscreenElement) {
+            elem.requestFullscreen().then(() => {
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    }
+
+    // Ensure chart resizes when entering/exiting fullscreen
+    document.addEventListener('fullscreenchange', () => {
+        if (myChart) {
+            setTimeout(() => { myChart.resize(); }, 150);
+        }
+    });
+
+    function initChart() {
+        const ctx = document.getElementById('chartGCanvas').getContext('2d');
+        const styles = getComputedStyle(document.body);
+        const accent = styles.getPropertyValue('--terminal-blue').trim();
+        const subText = styles.getPropertyValue('--text-sub').trim();
+        const gridColor = styles.getPropertyValue('--card-border').trim();
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, accent.replace('rgb', 'rgba').replace(')', ', 0.25)'));
+        gradient.addColorStop(1, 'transparent');
+
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'TEMP',
+                    borderColor: accent,
+                    borderWidth: 2,
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    data: []
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: subText, font: { size: 10 } } },
+                    y: { grid: { color: gridColor }, ticks: { color: subText, font: { size: 10 } } }
+                }
+            }
+        });
+    }
+
+    async function performAnalysis() {
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.style.display = 'flex';
+
+        try {
+            const response = await fetch(window.location.pathname, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: JSON.stringify({ 
+                    start_date: document.getElementById('startDate').value, 
+                    end_date: document.getElementById('endDate').value 
+                })
+            });
+            const data = await response.json();
+            const readings = data.chart_data;
+
+            if (readings.length > 0) {
+                const temps = readings.map(i => i.temperature);
+                const avg = (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1);
+                const min = Math.min(...temps).toFixed(1);
+                const max = Math.max(...temps).toFixed(1);
+
+                const elements = { 'avgVal': avg, 'minVal': min, 'maxVal': max };
+
+                for (let id in elements) {
+                    const el = document.getElementById(id);
+                    const color = getThermalColor(elements[id]);
+                    el.innerText = elements[id] + "°C";
+                    el.parentElement.style.color = color;
+                    el.parentElement.style.borderBottom = `3px solid ${color}`;
+                }
+
+                myChart.data.labels = readings.map(i => i.timestamp);
+                myChart.data.datasets[0].data = temps;
+                myChart.update();
+            }
+        } catch (e) { console.error(e); }
+        finally { 
+            setTimeout(() => { overlay.style.display = 'none'; }, 600);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - 30);
+        document.getElementById('startDate').valueAsDate = start;
+        document.getElementById('endDate').valueAsDate = end;
+        initChart();
+        performAnalysis();
+    });
+</script>
+{% endblock %}

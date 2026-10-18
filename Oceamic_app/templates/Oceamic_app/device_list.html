@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    :root { --electric-blue: #00d2ff; --atomic-black: #0a0e14; }
+    
+    .page-header { 
+        margin-bottom: 2rem; padding: 20px; 
+        background: linear-gradient(90deg, rgba(0, 210, 255, 0.1) 0%, transparent 100%);
+        border-left: 5px solid var(--electric-blue);
+    }
+    .page-title { font-family: 'Courier New', monospace; font-weight: 900; color: white; text-transform: uppercase; }
+
+    .atomic-card {
+        background: linear-gradient(145deg, #1a1a2e, #0f3460);
+        border-radius: 20px; padding: 20px; margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .data-pod { background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.05); }
+    .pod-label { font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; display: block; }
+    
+    /* The Live Value */
+    .pod-value { font-size: 1.6rem; font-weight: 900; color: var(--electric-blue); transition: all 0.5s; }
+
+    /* Flash animation when data changes */
+    .flash-update { animation: neon-flash 1s ease-out; }
+    @keyframes neon-flash {
+        0% { color: #fff; text-shadow: 0 0 15px #fff; transform: scale(1.1); }
+        100% { color: var(--electric-blue); text-shadow: none; transform: scale(1); }
+    }
+</style>
+
+<div class="page-header">
+    <h1 class="page-title">Operations_Center</h1>
+    <div id="sync-indicator" style="font-size: 0.6rem; color: var(--electric-blue); font-weight: 800;">
+        <i class="fas fa-satellite-dish me-1"></i> SIGNAL_STABLE
+    </div>
+</div>
+
+<div id="device-container">
+    {% for device in devices %}
+    <div class="atomic-card">
+        <div class="d-flex justify-content-between mb-3">
+            <span class="fw-bold text-white">{{ device.name|default:device.device_id }}</span>
+            <span class="badge bg-info text-dark" style="font-size:0.6rem;">{{ device.device_id }}</span>
+        </div>
+
+        <div class="row g-2">
+            <div class="col-6">
+                <div class="data-pod">
+                    <span class="pod-label">Live Temp</span>
+                    <span id="temp-{{ device.device_id }}" class="pod-value">
+                        {% if device.temperature %}{{ device.temperature.temperature }}°C{% else %}--{% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="data-pod">
+                    <span class="pod-label">Target</span>
+                    <span class="pod-value text-warning">{{ device.nominal_temperature|default:"N/A" }}°C</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+            <a href="{% url 'device_analysis' device.device_id %}" class="btn btn-dark btn-sm w-100 border-secondary" style="font-size:0.6rem;">Analysis</a>
+            <a href="{% url 'device_chart' device.device_id %}" class="btn btn-dark btn-sm w-100 border-secondary" style="font-size:0.6rem;">ChartG</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    async function liveRefresh() {
+        const indicator = document.getElementById('sync-indicator');
+        indicator.style.opacity = "0.5";
+
+        try {
+            // Fetch the current page HTML in the background
+            const response = await fetch(window.location.href);
+            const html = await response.text();
+            
+            // Create a virtual document to parse the HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Find every temperature span in the new HTML
+            const newTemps = doc.querySelectorAll('[id^="temp-"]');
+
+            newTemps.forEach(newElem => {
+                const oldElem = document.getElementById(newElem.id);
+                if (oldElem && oldElem.innerText !== newElem.innerText) {
+                    // Update value and trigger flash animation
+                    oldElem.innerText = newElem.innerText;
+                    oldElem.classList.remove('flash-update');
+                    void oldElem.offsetWidth; // Force CSS reset
+                    oldElem.classList.add('flash-update');
+                }
+            });
+
+            indicator.innerHTML = '<i class="fas fa-check-circle me-1"></i> DATA_SYNCED';
+            indicator.style.opacity = "1";
+
+        } catch (err) {
+            indicator.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> SYNC_ERROR';
+            indicator.style.color = "red";
+        }
+    }
+
+    // Run every 5 seconds
+    setInterval(liveRefresh, 5000);
+</script>
+{% endblock %}

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi Humidity Chart</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: #ffffff;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            overflow: auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.9);
+            width: 100%;
+            padding: 5px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            font-size: 0.9rem;
+            position: fixed;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .home-btn, .bar-chart-btn, .logout-btn, .device-id, .print-btn {
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-decoration: none;
+            margin: 0;
+            text-align: center;
+        }
+
+        .home-btn {
+            background: #007bff;
+            white-space: nowrap;
+        }
+
+        .bar-chart-btn {
+            background: #28a745;
+            white-space: nowrap;
+        }
+
+        .print-btn {
+            background: #FFD700;
+            white-space: nowrap;
+        }
+
+        .logout-btn {
+            background: #ff4757;
+        }
+
+        .device-id {
+            flex-grow: 1;
+            background-color: black;
+            color: yellow;
+            padding: 5px 10px;
+            text-align: center;
+        }
+
+        .container {
+            flex: 1;
+            width: 100%;
+            padding: 60px 30px 50px;
+        }
+
+        .chart-container {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .chart-box {
+            width: 100%;
+            margin: 20px 0;
+            height: 600px;
+        }
+
+        footer {
+            width: 100%;
+            background-color: black;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 0.9rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            z-index: 1000;
+        }
+
+        @media print {
+            body {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            .header, footer {
+                display: none;
+            }
+
+            .container {
+                padding: 0;
+                margin: 0;
+            }
+
+            .chart-container {
+                width: 100% !important;
+                display: flex;
+                flex-wrap: wrap;
+            }
+
+            .chart-box {
+                width: 100% !important;
+                height: auto !important;
+                page-break-before: always;
+                page-break-after: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="{% url 'home2' %}" class="home-btn">Home</a>
+        <a href="{% url 'humidity_chart' device_id=device_id %}" class="bar-chart-btn">humidity Chart</a>
+
+        <div class="device-id">
+            {% if device_id == 'device1' %}Chambre négative-1 unité-2{% endif %}
+            {% if device_id == 'device2' %}Chambre positive unité-2{% endif %}
+            {% if device_id == 'device3' %}Chambre des ingrédients unité-2{% endif %}
+            {% if device_id == 'device4' %}Chambre positive unité-1{% endif %}
+            {% if device_id == 'device5' %}Chambre négative-2 unité-2{% endif %}
+            {% if device_id == 'device6' %}Chambre des ingrédients unité-1{% endif %}
+        </div>
+        <button onclick="window.print()" class="print-btn">Print</button>
+        <form class="logout-form" method="POST" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="logout-btn">Logout</button>
+        </form>
+    </div>
+    <div class="container mt-4 printable-content">
+        <form method="get">
+            <label for="dates">Select Dates:</label>
+            <input type="text" id="dates" name="dates" value="{{ selected_dates }}">
+            <button type="submit">View</button>
+        </form>
+        <div class="chart-container" id="chart-container"></div>
+    </div>
+    <footer>&copy; Oceamic Laayoune II - All rights reserved</footer>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            flatpickr("#dates", {
+                mode: "multiple",
+                dateFormat: "Y-m-d",
+                defaultDate: "{{ selected_dates|default:'' }}"
+            });
+
+            const jsonData = '{{ all_readings|escapejs }}';
+            console.log('JSON Data:', jsonData);
+
+            let allReadings;
+
+            try {
+                allReadings = JSON.parse(jsonData);
+                console.log('All Readings:', allReadings);
+            } catch (e) {
+                console.error('Invalid JSON:', e);
+                return;
+            }
+
+            const chartContainer = document.getElementById('chart-container');
+
+            const deviceName = `{% if device_id == 'device1' %}Chambre négative-1 unité-2{% elif device_id == 'device2' %}Chambre positive unité-2{% elif device_id == 'device3' %}Chambre des ingrédients unité-2{% elif device_id == 'device4' %}Chambre positive unité-1{% elif device_id == 'device5' %}Chambre négative-2 unité-2{% elif device_id == 'device6' %}Chambre des ingrédients unité-1{% endif %}`;
+
+            allReadings.forEach((reading, index) => {
+                // Create a unique chart container for each date
+                const chartBox = document.createElement('div');
+                chartBox.className = 'chart-box';
+                chartBox.innerHTML = `<canvas id="humidityChart${index}"></canvas>`;
+                chartContainer.appendChild(chartBox);
+
+                const ctx = document.getElementById(`humidityChart${index}`).getContext('2d');
+                const chartData = {
+                    labels: reading.timestamps.length > 0 ? reading.timestamps.map(timestamp => moment(timestamp).format('HH:mm')) : ['No data available'],
+                    datasets: [{
+                        label: `${deviceName} ${reading.date}`,
+                        data: reading.humidities.length > 0 ? reading.humidities : [0],
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                    }]
+                };
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${deviceName} ${reading.date}`
+                            },
+                            legend: {
+                                position: 'top',
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Time',
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Humidity (%)',
+                                },
+                                suggestedMin: 0,
+                                suggestedMax: 100
+                            }
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

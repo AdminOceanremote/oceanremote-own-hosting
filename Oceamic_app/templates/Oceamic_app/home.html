@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+{% block title %}Operations Center | Oceamic{% endblock %}
+
+{% block content %}
+<style>
+    /* --- THEME VARIABLE ENGINE --- */
+    :root {
+        --atomic-black: #0a0e14;
+        --card-gradient: linear-gradient(145deg, #1a1a2e, #0f3460);
+        --card-border: rgba(255, 255, 255, 0.05);
+        --pod-bg: rgba(0, 0, 0, 0.3);
+        --text-main: #e2e8f0;
+        --text-bold: #ffffff;
+
+        /* Brand Colors */
+        --electric-blue: #00d2ff;
+        --neon-glow: rgba(0, 210, 255, 0.3);
+        --alert-red: #ff3131;
+        --red-glow: rgba(255, 49, 49, 0.6);
+        --target-amber: #f59e0b;
+        --avg-orange: #f97316;
+        --humidity-teal: #2dd4bf;
+        --humidity-glow: rgba(45, 212, 191, 0.3);
+
+        /* Error state */
+        --error-color: #ef4444;
+        --error-glow: rgba(239, 68, 68, 0.3);
+
+        /* Flash colors - Dark mode uses white flash */
+        --flash-color: #ffffff;
+        --flash-text: #000000;
+    }
+
+    [data-theme="light"] {
+        --atomic-black: #f1f5f9;
+        --card-gradient: linear-gradient(145deg, #ffffff, #f8fafc);
+        --card-border: #e2e8f0;
+        --pod-bg: #ffffff;
+        --text-main: #475569;
+        --text-bold: #1e293b;
+
+        --electric-blue: #0284c7;
+        --neon-glow: rgba(2, 132, 199, 0.15);
+        --target-amber: #b45309;
+        --avg-orange: #ea580c;
+        --humidity-teal: #0d9488;
+        --humidity-glow: rgba(13, 148, 136, 0.15);
+        --error-color: #dc2626;
+        --error-glow: rgba(220, 38, 38, 0.2);
+
+        /* Flash colors - Light mode uses black flash */
+        --flash-color: #1e293b;
+        --flash-text: #ffffff;
+    }
+
+    body {
+        background-color: var(--atomic-black);
+        color: var(--text-main);
+        transition: background 0.3s ease;
+    }
+
+    /* --- PERFORMANCE TWEAK --- */
+    .atomic-card, .data-pod { will-change: transform; }
+
+    /* --- INDUSTRIAL TERMINAL HEADER --- */
+    .page-header {
+        margin-bottom: 2rem; padding: 20px;
+        background: linear-gradient(90deg, var(--neon-glow) 0%, transparent 100%);
+        border-left: 5px solid var(--electric-blue);
+        position: relative;
+    }
+    .page-title {
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: 900; color: var(--text-bold); font-size: 1.4rem;
+        text-transform: uppercase; letter-spacing: 2px; margin: 0;
+    }
+
+    .status-line {
+        font-size: 0.65rem;
+        color: var(--electric-blue);
+        font-weight: 800;
+        margin-top: 5px;
+        transition: 0.3s;
+    }
+
+    .sync-active {
+        text-shadow: 0 0 10px var(--electric-blue);
+        color: #fff !important;
+    }
+
+    .atomic-card {
+        background: var(--card-gradient);
+        border-radius: 20px; border: 1px solid var(--card-border);
+        padding: 20px; margin-bottom: 25px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        position: relative; overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .atomic-card::before {
+        content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+        background: linear-gradient(90deg, transparent, var(--electric-blue), transparent);
+    }
+
+    /* --- ERROR STATE FOR CARDS --- */
+    .atomic-card.error-sensor {
+        border-color: var(--error-color);
+        opacity: 0.8;
+    }
+
+    .atomic-card.error-sensor::before {
+        background: linear-gradient(90deg, transparent, var(--error-color), transparent);
+    }
+
+    .atomic-card.error-sensor .temp-value {
+        color: var(--error-color) !important;
+    }
+
+    .main-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .data-pod {
+        background: var(--pod-bg);
+        border-radius: 15px;
+        padding: 12px 8px;
+        border: 1px solid var(--card-border);
+        text-align: center;
+        transition: all 0.4s ease;
+        position: relative;
+    }
+
+    /* --- HEARTBEAT EDGE GLOW --- */
+    .live-container { position: relative; border: 1px solid var(--neon-glow); }
+
+    .live-container::after {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        border-radius: 15px;
+        border: 1px solid var(--electric-blue);
+        box-shadow: 0 0 15px var(--neon-glow), inset 0 0 8px var(--neon-glow);
+        opacity: 0;
+        animation: edge-heartbeat-opacity 3s infinite ease-in-out;
+        pointer-events: none;
+    }
+
+    @keyframes edge-heartbeat-opacity {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 1; }
+    }
+
+    .pod-label {
+        font-size: 0.55rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        font-weight: 700;
+        display: block;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+
+    .pod-value {
+        font-size: 1.3rem;
+        font-weight: 900;
+        transition: all 0.3s ease;
+        line-height: 1.2;
+    }
+
+    .temp-value {
+        color: var(--electric-blue);
+        text-shadow: 0 0 10px var(--neon-glow);
+    }
+
+    .humidity-value {
+        color: var(--humidity-teal);
+        text-shadow: 0 0 10px var(--humidity-glow);
+    }
+
+    .avg-value {
+        color: var(--avg-orange);
+        text-shadow: 0 0 10px rgba(249, 115, 22, 0.3);
+        font-size: 1.2rem;
+    }
+
+    /* Error text style */
+    .error-text {
+        color: var(--error-color) !important;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* --- TEMPERATURE UPDATE FLASH (uses theme variables) --- */
+    .temp-flash {
+        animation: temp-flash-animation 0.5s ease-out;
+    }
+    @keyframes temp-flash-animation {
+        0% {
+            background: var(--flash-color);
+            box-shadow: 0 0 30px var(--flash-color);
+            color: var(--flash-text);
+        }
+        100% {
+            background: var(--pod-bg);
+            color: var(--electric-blue);
+        }
+    }
+
+    /* --- HUMIDITY UPDATE FLASH (uses theme variables) --- */
+    .humidity-flash {
+        animation: humidity-flash-animation 0.5s ease-out;
+    }
+    @keyframes humidity-flash-animation {
+        0% {
+            background: var(--flash-color);
+            box-shadow: 0 0 30px var(--flash-color);
+            color: var(--flash-text);
+        }
+        100% {
+            background: var(--pod-bg);
+            color: var(--humidity-teal);
+        }
+    }
+
+    /* --- COMMAND STRIP --- */
+    .command-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 15px; }
+    .btn-atomic {
+        background: var(--pod-bg); border: 1px solid var(--card-border);
+        border-radius: 12px; padding: 10px 5px; color: var(--text-bold); font-size: 0.7rem;
+        font-weight: 700; text-align: center; text-decoration: none; transition: 0.3s all ease;
+        cursor: pointer;
+    }
+    .btn-atomic i { display: block; font-size: 1rem; margin-bottom: 5px; color: var(--electric-blue); }
+
+    .btn-active-red {
+        background: rgba(255, 49, 49, 0.2) !important;
+        border-color: var(--alert-red) !important;
+        box-shadow: 0 0 20px var(--red-glow), inset 0 0 10px var(--red-glow) !important;
+        transform: scale(0.95);
+    }
+    .btn-active-red i { color: var(--alert-red) !important; }
+
+    /* Responsive adjustments */
+    @media (max-width: 480px) {
+        .main-grid { gap: 8px; }
+        .pod-value { font-size: 1.1rem; }
+        .avg-value { font-size: 1rem; }
+    }
+</style>
+
+<div class="page-header">
+    <h1 class="page-title">Operations_Center</h1>
+    <div class="status-line" id="status-line">
+        <i class="fas fa-sync fa-spin me-1" id="sync-icon"></i> LIVE_STREAM_ACTIVE
+    </div>
+</div>
+
+<div id="device-container">
+    {% for device in devices %}
+    <div class="atomic-card" id="card-{{ device.device_id }}" data-device-id="{{ device.device_id }}">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="fw-bold" style="letter-spacing: 0.5px; color: var(--text-bold);">{{ device.name|default:device.device_id }}</span>
+            <span style="background:var(--electric-blue); color:white; font-size:10px; padding:2px 8px; border-radius:4px; font-weight:900; font-family: monospace;">
+                {{ device.device_id }}
+            </span>
+        </div>
+
+        <div class="main-grid">
+            <!-- Live Temperature -->
+            <div class="data-pod live-container" id="pod-{{ device.device_id }}">
+                <span class="pod-label"> TEMP</span>
+                <span class="pod-value temp-value" data-device="{{ device.device_id }}" id="temp-{{ device.device_id }}">
+                    {% if device.temperature and device.temperature.temperature is not None %}
+                        {{ device.temperature.temperature|floatformat:2 }}°C
+                    {% else %}
+                        ERROR
+                    {% endif %}
+                </span>
+            </div>
+
+            <!-- Live Humidity -->
+            <div class="data-pod live-container" id="hum-pod-{{ device.device_id }}">
+                <span class="pod-label"> HUM</span>
+                <span class="pod-value humidity-value" id="hum-{{ device.device_id }}">
+                    {% if device.humidity and device.humidity.humidity is not None %}
+                        {{ device.humidity.humidity|floatformat:1 }}%
+                    {% else %}
+                        ---
+                    {% endif %}
+                </span>
+            </div>
+
+            <!-- Today's Average Temperature -->
+            <div class="data-pod" id="avg-pod-{{ device.device_id }}">
+                <span class="pod-label"> AVG</span>
+                <span class="pod-value avg-value" id="avg-{{ device.device_id }}">
+                    {% if device.today_avg is not None %}
+                        {{ device.today_avg|floatformat:2 }}°C
+                    {% else %}
+                        ---
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <div class="command-strip">
+            <a href="{% url 'device_analysis' device.device_id %}" class="btn-atomic action-btn" data-url="{% url 'device_analysis' device.device_id %}">
+                <i class="fas fa-microchip"></i>Analysis
+            </a>
+            <a href="{% url 'device_chart' device.device_id %}" class="btn-atomic action-btn" data-url="{% url 'device_chart' device.device_id %}">
+                <i class="fas fa-chart-line"></i>ChartG
+            </a>
+            <a href="{% url 'manage_alerts' device.device_id %}" class="btn-atomic action-btn" data-url="{% url 'manage_alerts' device.device_id %}">
+                <i class="fas fa-bell"></i>Set-Alert
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="atomic-card text-center p-5">
+        <i class="fas fa-exclamation-triangle fa-3x mb-3" style="color: var(--alert-red);"></i>
+        <p class="fw-bold">NO SENSOR NODES DETECTED</p>
+        <small class="text-muted">SCANNING FREQUENCIES...</small>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    // ============================================================
+    // HOME PAGE INITIALIZATION - EXPOSED FOR HTMX RE-INIT
+    // ============================================================
+    
+    // Store previous values to detect changes
+    const previousTemps = {};
+    const previousHums = {};
+    let homeRefreshInterval = null;
+
+    // --- VALIDATION FUNCTION ---
+    function isValidTemperature(val) {
+        if (val === null || val === undefined) return false;
+        if (val === '--' || val === '-' || val === '' || val === 0) return false;
+        if (isNaN(parseFloat(val))) return false;
+        return true;
+    }
+
+    function isValidHumidity(val) {
+        if (val === null || val === undefined) return false;
+        if (val === '--' || val === '-' || val === '') return false;
+        if (isNaN(parseFloat(val))) return false;
+        return true;
+    }
+
+    // --- BUTTON RED GLOW LOGIC ---
+    function setupActionButtons() {
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            btn.removeEventListener('click', handleActionClick);
+            btn.addEventListener('click', handleActionClick);
+        });
+    }
+
+    function handleActionClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const targetUrl = this.getAttribute('data-url') || this.getAttribute('href');
+        if (!targetUrl) return;
+        
+        this.classList.add('btn-active-red');
+        
+        setTimeout(() => { 
+            window.location.href = targetUrl; 
+        }, 200);
+    }
+
+    // --- CACHE-BUSTING FETCH HELPER ---
+    async function fetchWithCacheBusting(url, options = {}) {
+        const timestamp = new Date().getTime();
+        const separator = url.includes('?') ? '&' : '?';
+        const cacheBustedUrl = `${url}${separator}_=${timestamp}`;
+
+        const defaultHeaders = {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        };
+
+        const fetchOptions = {
+            ...options,
+            headers: {
+                ...defaultHeaders,
+                ...(options.headers || {})
+            }
+        };
+
+        const response = await fetch(cacheBustedUrl, fetchOptions);
+        return response;
+    }
+
+    // --- LIVE DATA REFRESH ---
+    async function refreshHomeData() {
+        const statusLine = document.getElementById('status-line');
+        if (!statusLine) return;
+        
+        try {
+            const response = await fetchWithCacheBusting(window.location.href);
+
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const data = await response.json();
+
+            if (data.devices && Array.isArray(data.devices)) {
+                data.devices.forEach(device => {
+                    const tempElement = document.getElementById(`temp-${device.id}`);
+                    const tempPod = document.getElementById(`pod-${device.id}`);
+                    const humElement = document.getElementById(`hum-${device.id}`);
+                    const humPod = document.getElementById(`hum-pod-${device.id}`);
+                    const card = document.getElementById(`card-${device.id}`);
+                    const avgElement = document.getElementById(`avg-${device.id}`);
+
+                    // Update temperature with error handling (2 decimal places)
+                    if (tempElement) {
+                        const hasValidData = isValidTemperature(device.temp);
+                        const newDisplayValue = hasValidData ?
+                            `${parseFloat(device.temp).toFixed(2)}°C` : 'ERROR';
+                        const oldValue = previousTemps[device.id];
+
+                        tempElement.innerText = newDisplayValue;
+
+                        if (!hasValidData) {
+                            card?.classList.add('error-sensor');
+                            tempElement.classList.add('error-text');
+                        } else {
+                            card?.classList.remove('error-sensor');
+                            tempElement.classList.remove('error-text');
+
+                            if (oldValue !== newDisplayValue && tempPod) {
+                                tempPod.classList.remove('temp-flash');
+                                void tempPod.offsetWidth;
+                                tempPod.classList.add('temp-flash');
+                            }
+                        }
+
+                        previousTemps[device.id] = newDisplayValue;
+                    }
+
+                    // Update humidity (1 decimal place)
+                    if (humElement) {
+                        const hasValidHum = isValidHumidity(device.hum);
+                        const newHumValue = hasValidHum ?
+                            `${parseFloat(device.hum).toFixed(1)}%` : '---';
+                        const oldHum = previousHums[device.id];
+
+                        humElement.innerText = newHumValue;
+
+                        if (hasValidHum && oldHum !== newHumValue && humPod) {
+                            humPod.classList.remove('humidity-flash');
+                            void humPod.offsetWidth;
+                            humPod.classList.add('humidity-flash');
+                        }
+
+                        previousHums[device.id] = newHumValue;
+                    }
+
+                    // Update today's average (2 decimal places)
+                    if (avgElement) {
+                        if (device.today_avg !== null && device.today_avg !== undefined && !isNaN(device.today_avg)) {
+                            avgElement.innerText = `${parseFloat(device.today_avg).toFixed(2)}°C`;
+                        } else {
+                            avgElement.innerText = '---';
+                        }
+                    }
+                });
+            }
+
+            statusLine.classList.add('sync-active');
+            statusLine.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i> LIVE_STREAM_ACTIVE';
+            setTimeout(() => statusLine.classList.remove('sync-active'), 800);
+
+        } catch (error) {
+            console.error("Sync Interrupted:", error);
+            statusLine.style.color = "#ef4444";
+            statusLine.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> CONNECTION_LOST';
+        }
+    }
+
+    // ============================================================
+    // EXPOSED INIT FUNCTION FOR HTMX
+    // ============================================================
+    window.initHomePage = function() {
+        console.log("Initializing Home page");
+        
+        // Clear existing interval
+        if (homeRefreshInterval) {
+            clearInterval(homeRefreshInterval);
+            homeRefreshInterval = null;
+        }
+
+        // Reset previous values
+        Object.keys(previousTemps).forEach(key => delete previousTemps[key]);
+        Object.keys(previousHums).forEach(key => delete previousHums[key]);
+
+        // Initialize previous values from current DOM
+        document.querySelectorAll('[id^="temp-"]').forEach(elem => {
+            const deviceId = elem.id.replace('temp-', '');
+            let currentVal = elem.innerText.replace('°C', '').trim();
+            if (currentVal === 'ERROR') currentVal = null;
+            previousTemps[deviceId] = currentVal;
+        });
+
+        document.querySelectorAll('[id^="hum-"]').forEach(elem => {
+            const deviceId = elem.id.replace('hum-', '');
+            let currentVal = elem.innerText.replace('%', '').trim();
+            if (currentVal === '---') currentVal = null;
+            previousHums[deviceId] = currentVal;
+        });
+
+        setupActionButtons();
+
+        // Start data refresh
+        refreshHomeData();
+        homeRefreshInterval = setInterval(refreshHomeData, 2000);
+    };
+
+    // ============================================================
+    // DOMContentLoaded - Initial load
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        window.initHomePage();
+    });
+
+    // Handle page visibility change
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && document.getElementById('device-container')) {
+            console.log("Page visible again - refreshing data");
+            refreshHomeData();
+        }
+    });
+
+    // Make refreshHomeData available globally for debugging
+    window.homeRefreshData = refreshHomeData;
+</script>
+{% endblock %}

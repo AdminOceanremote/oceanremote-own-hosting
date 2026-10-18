@@ -1,0 +1,636 @@
+{% extends "base.html" %}
+{% block title %}Node Command | Oceamic{% endblock %}
+
+{% block content %}
+<style>
+    /* --- THEME VARIABLE ENGINE (MERGED) --- */
+    :root {
+        --atomic-black: #0a0e14;
+        --card-gradient: linear-gradient(145deg, #1a1a2e, #0f3460);
+        --card-border: rgba(255, 255, 255, 0.05);
+        --pod-bg: rgba(0, 0, 0, 0.3);
+        --text-main: #e2e8f0;
+        --text-bold: #ffffff;
+
+        /* Brand Colors */
+        --electric-blue: #00d2ff;
+        --neon-glow: rgba(0, 210, 255, 0.3);
+        --alert-red: #ff3131;
+        --red-glow: rgba(255, 49, 49, 0.6);
+        --target-amber: #f59e0b;
+        --terminal-green: #10b981;
+        --terminal-darkblue: #0a4d8c;
+
+        /* Flash Logic for Dark Mode */
+        --flash-color: #ffffff;
+        --flash-text: #000000;
+
+        /* Gauge specific */
+        --gauge-empty: rgba(255, 255, 255, 0.05);
+        --tag-bg: rgba(0, 210, 255, 0.1);
+
+        /* Error state */
+        --error-color: #ef4444;
+        --error-glow: rgba(239, 68, 68, 0.3);
+    }
+
+    [data-theme="light"] {
+        --atomic-black: #f1f5f9;
+        --card-gradient: linear-gradient(145deg, #ffffff, #f8fafc);
+        --card-border: #e2e8f0;
+        --pod-bg: #ffffff;
+        --text-main: #475569;
+        --text-bold: #1e293b;
+
+        /* High Contrast Brand Colors */
+        --electric-blue: #0284c7;
+        --neon-glow: rgba(2, 132, 199, 0.15);
+        --target-amber: #b45309;
+        --terminal-green: #15803d;
+
+        /* Flash Logic for Light Mode (Black Flash) */
+        --flash-color: #1e293b;
+        --flash-text: #ffffff;
+
+        /* Gauge specific */
+        --gauge-empty: #f1f5f9;
+        --tag-bg: #f8fafc;
+
+        /* Error state */
+        --error-color: #dc2626;
+        --error-glow: rgba(220, 38, 38, 0.2);
+    }
+
+    body { background-color: var(--atomic-black); color: var(--text-main); transition: background 0.3s ease; }
+
+    /* --- PERFORMANCE TWEAK --- */
+    .atomic-card, .data-pod, .manometer-card { will-change: transform; contain: content; }
+
+    /* --- INDUSTRIAL TERMINAL HEADER --- */
+    .choice-header {
+        margin-bottom: 2rem; padding: 20px;
+        background: linear-gradient(90deg, var(--neon-glow) 0%, transparent 100%);
+        border-left: 5px solid var(--electric-blue);
+        position: relative;
+    }
+    .choice-header h1 {
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: 900; color: var(--text-bold); font-size: 1.4rem;
+        text-transform: uppercase; letter-spacing: 2px; margin: 0;
+    }
+    .ops-tag {
+        font-family: monospace; color: var(--electric-blue);
+        font-size: 0.8rem; font-weight: 700;
+    }
+
+    /* --- ATOMIC CARDS FOR GAUGES --- */
+    .device-grid {
+        display: grid; grid-template-columns: repeat(2, 1fr);
+        gap: 15px; padding: 5px;
+    }
+    @media (min-width: 768px) { .device-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 25px; } }
+
+    .manometer-card {
+        background: var(--card-gradient);
+        border-radius: 28px; border: 1px solid var(--card-border);
+        padding: 25px 10px; color: var(--text-bold);
+        display: flex; flex-direction: column; align-items: center;
+        position: relative; overflow: hidden;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        cursor: pointer;
+    }
+
+    .manometer-card::before {
+        content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+        background: linear-gradient(90deg, transparent, var(--electric-blue), transparent);
+    }
+
+    .manometer-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        border-color: var(--electric-blue);
+    }
+    .manometer-card:active { transform: scale(0.95); }
+
+    /* --- ERROR STATE FOR CARDS --- */
+    .manometer-card.error-sensor {
+        border-color: var(--error-color);
+        opacity: 0.8;
+    }
+
+    .manometer-card.error-sensor::before {
+        background: linear-gradient(90deg, transparent, var(--error-color), transparent);
+    }
+
+    .manometer-card.error-sensor .gauge-wrapper::after {
+        border-color: var(--error-color);
+        box-shadow: 0 0 15px var(--error-glow), inset 0 0 8px var(--error-glow);
+        animation: error-heartbeat 2s infinite ease-in-out;
+    }
+
+    @keyframes error-heartbeat {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 1; }
+    }
+
+    .manometer-card.error-sensor .temp-value {
+        color: var(--error-color);
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
+    .manometer-card.error-sensor .id-badge {
+        border-color: var(--error-color);
+        color: var(--error-color);
+    }
+
+    /* --- HEARTBEAT EDGE GLOW FOR LIVE CONTAINERS --- */
+    .gauge-wrapper {
+        position: relative; width: 120px; height: 120px; margin-bottom: 15px;
+        border: 1px solid var(--neon-glow);
+        border-radius: 50%;
+    }
+
+    .gauge-wrapper::after {
+        content: "";
+        position: absolute;
+        top: -2px; left: -2px; right: -2px; bottom: -2px;
+        border-radius: 50%;
+        border: 1px solid var(--electric-blue);
+        box-shadow: 0 0 15px var(--neon-glow), inset 0 0 8px var(--neon-glow);
+        opacity: 0;
+        animation: edge-heartbeat-opacity 3s infinite ease-in-out;
+        pointer-events: none;
+    }
+
+    @keyframes edge-heartbeat-opacity {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 1; }
+    }
+
+    .gauge-svg { transform: rotate(-90deg); width: 100%; height: 100%; overflow: visible; }
+    .gauge-circle-bg { fill: none; stroke: var(--gauge-empty); stroke-width: 10; }
+    .gauge-circle-fill {
+        fill: none; stroke-width: 12; stroke-linecap: round;
+        filter: drop-shadow(0 0 6px currentColor);
+        transition: stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s ease;
+    }
+
+    .glow-active { animation: neon-pulse 3s ease-in-out infinite; }
+    @keyframes neon-pulse {
+        0%, 100% { opacity: 0.8; filter: drop-shadow(0 0 6px currentColor); }
+        50% { opacity: 1; filter: drop-shadow(0 0 15px currentColor); }
+    }
+
+    .striking {
+        stroke: var(--flash-color) !important;
+        filter: drop-shadow(0 0 20px var(--flash-color)) drop-shadow(0 0 30px var(--flash-color)) !important;
+        transition: stroke-dasharray 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2), stroke 0.1s ease !important;
+    }
+
+    .temp-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 100%; }
+    .temp-value {
+        font-size: 1.3rem; font-weight: 800; font-family: monospace;
+        color: var(--text-bold); transition: color 0.2s ease;
+    }
+    .temp-unit {
+        font-size: 0.65rem; color: var(--electric-blue);
+        font-weight: 800; text-transform: uppercase;
+    }
+
+    .name-label {
+        font-weight: 800; font-size: 0.85rem; text-transform: uppercase;
+        margin-top: 10px; text-align: center; color: var(--text-bold);
+    }
+    .id-badge {
+        font-family: monospace; font-size: 0.65rem; color: var(--electric-blue);
+        background: var(--tag-bg); padding: 2px 8px; border-radius: 4px; margin-top: 5px;
+        border: 1px solid var(--neon-glow);
+    }
+
+    /* --- THEME-AWARE DATA UPDATE FLASH --- */
+    .pulse-update { animation: flash-logic 1s ease-out; }
+    @keyframes flash-logic {
+        0% {
+            background: var(--flash-color);
+            box-shadow: 0 0 30px var(--flash-color);
+            color: var(--flash-text);
+        }
+        100% {
+            background: transparent;
+        }
+    }
+
+    /* --- DIAGNOSTIC OVERLAY WITH ATOMIC STYLING --- */
+    .diagnostic-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: var(--atomic-black); z-index: 9999;
+        display: none; flex-direction: column;
+        padding: 25px; overflow-y: auto;
+        animation: slideIn 0.4s cubic-bezier(0, 1, 0.5, 1);
+    }
+    @keyframes slideIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+    .diag-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+    .btn-exit {
+        background: var(--alert-red); color: white; border: none;
+        padding: 12px 25px; border-radius: 15px; font-weight: 900; cursor: pointer;
+        box-shadow: 0 0 20px var(--red-glow);
+        transition: all 0.3s ease;
+    }
+    .btn-exit:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 30px var(--red-glow);
+    }
+
+    .hero-stat-card {
+        background: var(--card-gradient); border: 2px solid var(--electric-blue);
+        border-radius: 30px; padding: 40px 20px; text-align: center;
+        box-shadow: 0 0 40px var(--neon-glow);
+        margin-bottom: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .hero-stat-card::before {
+        content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+        background: linear-gradient(90deg, transparent, var(--electric-blue), transparent);
+    }
+
+    .diag-big-temp {
+        font-size: 4.5rem; font-weight: 900; line-height: 1; font-family: monospace;
+        color: var(--text-bold);
+        text-shadow: 0 0 30px var(--electric-blue);
+    }
+
+    .stat-tile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .stat-tile {
+        background: var(--pod-bg); padding: 20px; border-radius: 20px;
+        border: 1px solid var(--card-border);
+        transition: all 0.3s ease;
+    }
+    .stat-tile:hover {
+        transform: translateY(-2px);
+        border-color: var(--electric-blue);
+        box-shadow: 0 0 20px var(--neon-glow);
+    }
+    .tile-label {
+        font-size: 0.7rem; text-transform: uppercase;
+        color: var(--text-main); margin-bottom: 5px; font-weight: 700;
+    }
+    .tile-val {
+        font-size: 1.4rem; font-weight: 800; font-family: monospace;
+        color: var(--text-bold);
+    }
+
+    .terminal-console {
+        background: #000; color: var(--terminal-green); font-family: 'Courier New', monospace;
+        padding: 20px; border-radius: 15px; font-size: 0.75rem; margin-top: 25px;
+        border: 1px solid var(--terminal-green);
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+    }
+
+    .no-data {
+        opacity: 0.5;
+    }
+
+    .no-data .temp-value {
+        color: var(--text-main);
+    }
+
+    .no-data .gauge-wrapper::after {
+        animation: none;
+        opacity: 0.1;
+    }
+
+    /* --- RED GLOWING ACTIVATION FOR BUTTONS --- */
+    .btn-active-red {
+        background: rgba(255, 49, 49, 0.2) !important;
+        border-color: var(--alert-red) !important;
+        box-shadow: 0 0 20px var(--red-glow), inset 0 0 10px var(--red-glow) !important;
+        transform: scale(0.95);
+    }
+
+    .sync-active {
+        color: var(--text-bold) !important;
+        text-shadow: 0 0 10px var(--electric-blue);
+    }
+
+    /* Status line styling */
+    #status-line {
+        font-size: 0.65rem; color: var(--electric-blue);
+        font-weight: 800; margin-top: 5px; transition: 0.3s;
+    }
+</style>
+
+<div class="page-header choice-header">
+    <h1 class="page-title">Nodes</h1>
+    <div id="status-line">
+        <i class="fas fa-sync fa-spin me-1" id="sync-icon"></i> LIVE_STREAM_ACTIVE
+    </div>
+</div>
+
+<div class="device-grid">
+    {% for d in devices %}
+    <div class="manometer-card {% if d.current_temp == '--' or d.current_temp == '-' or d.current_temp == '' or d.current_temp == 0 %}error-sensor{% endif %}"
+         onclick="openDiag('{{ d.device_id }}')">
+        <div class="gauge-wrapper" id="pod-{{ d.device_id }}">
+            <svg class="gauge-svg" viewBox="0 0 120 120">
+                <circle class="gauge-circle-bg" cx="60" cy="60" r="50"></circle>
+                <circle class="gauge-circle-fill"
+                        id="gauge-{{ d.device_id }}"
+                        cx="60" cy="60" r="50"
+                        data-raw="{{ d.current_temp }}">
+                </circle>
+            </svg>
+            <div class="temp-display">
+                <span class="temp-value" id="val-{{ d.device_id }}">
+                    {% if d.current_temp == '--' or d.current_temp == '-' or d.current_temp == '' or d.current_temp == 0 %}
+                        ERROR
+                    {% else %}
+                        {{ d.current_temp|floatformat:2 }}
+                    {% endif %}
+                </span>
+                <span class="temp-unit">°C</span>
+            </div>
+        </div>
+        <div class="name-label">{{ d.name }}</div>
+        <div class="id-badge">⌘ NODE_{{ d.device_id|upper }} ⌘</div>
+
+        <div id="meta-{{ d.device_id }}" style="display:none;"
+             data-min="{{ d.min_today }}"
+             data-max="{{ d.max_today }}"
+             data-avg="{{ d.avg_today }}"
+             data-health="{{ d.health }}"
+             data-hcolor="{{ d.health_color }}"
+             data-name="{{ d.name }}">
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="diagOverlay" class="diagnostic-overlay">
+    <div class="diag-header">
+        <div>
+            <h4 class="mb-0 fw-bolder" style="color: var(--text-bold);" id="diag-title">DEVICE_NAME</h4>
+        </div>
+        <button class="btn-exit" onclick="closeDiag()">EXIT_SYSTEM</button>
+    </div>
+
+    <div class="hero-stat-card">
+        <div class="tile-label">⚡ Real-Time Core Temp ⚡</div>
+        <div class="diag-big-temp" id="diag-current">---</div>
+        <div class="fw-bold mt-2" id="diag-health-badge" style="letter-spacing: 3px;">STATUS_UNKNOWN</div>
+    </div>
+
+    <div class="stat-tile-grid">
+        <div class="stat-tile">
+            <div class="tile-label"><i class="fas fa-arrow-down me-2"></i>Min Today</div>
+            <div class="tile-val" id="diag-min">--</div>
+        </div>
+        <div class="stat-tile">
+            <div class="tile-label"><i class="fas fa-arrow-up me-2"></i>Max Today</div>
+            <div class="tile-val" id="diag-max">--</div>
+        </div>
+        <div class="stat-tile">
+            <div class="tile-label"><i class="fas fa-calculator me-2"></i>Avg Today</div>
+            <div class="tile-val" id="diag-avg">--</div>
+        </div>
+        <div class="stat-tile">
+            <div class="tile-label"><i class="fas fa-signal me-2"></i>Uptime</div>
+            <div class="tile-val" style="color: var(--terminal-green);">99.9%</div>
+        </div>
+    </div>
+
+    <div class="terminal-console">
+        <div>> INJECTING TELEMETRY HANDSHAKE... OK</div>
+        <div>> ANALYZING THERMAL GRADIENT... DONE</div>
+        <div style="color: white;">> SYSTEM_STATUS: <span id="diag-status-log">STABLE</span></div>
+        <div>> MONITORING ...<span class="cursor-blink" style="border-left: 6px solid var(--terminal-green); margin-left:5px; animation: blink 1s infinite;"></span></div>
+    </div>
+</div>
+
+<script>
+    const CIRCUMFERENCE = 2 * Math.PI * 50; // 314.159...
+    const lastUpdateTimes = {};
+    const pendingUpdates = {};
+
+    function isValidTemperature(val) {
+        // Check if value is a valid number and not empty/error
+        if (val === null || val === undefined) return false;
+        if (val === '--' || val === '-' || val === '' || val === 0) return false;
+        if (isNaN(parseFloat(val))) return false;
+        return true;
+    }
+
+    function getTempColor(val) {
+        if (!isValidTemperature(val)) {
+            return "#ef4444"; // Red for error state
+        }
+        val = parseFloat(val);
+        if (val > 8) return "#ef4444";
+        if (val >= 0 && val <= 8) return "#10b981";
+        if (val > -18 && val < 0) return "#38bdf8";
+        return "#0a4d8c";
+    }
+
+    function calculatePercentage(val) {
+        if (!isValidTemperature(val)) {
+            return 0;
+        }
+        val = parseFloat(val);
+        let pct = 0;
+
+        if (val >= 0) {
+            if (val <= 8) {
+                pct = (val / 8) * 0.7;
+            } else {
+                const cappedVal = Math.min(val, 20);
+                pct = 0.7 + ((cappedVal - 8) / 12) * 0.25;
+            }
+        } else {
+            const cappedVal = Math.max(val, -29);
+            pct = (Math.abs(cappedVal) / 29) * 0.95;
+        }
+
+        return Math.min(pct, 0.95);
+    }
+
+    function updateGauge(id, value, isUpdate = false) {
+        const gauge = document.getElementById(`gauge-${id}`);
+        const text = document.getElementById(`val-${id}`);
+        const pod = document.getElementById(`pod-${id}`);
+        const card = document.querySelector(`[onclick="openDiag('${id}')"]`);
+
+        if (!gauge) return;
+
+        const now = Date.now();
+        const lastUpdate = lastUpdateTimes[id] || 0;
+
+        if (isUpdate && now - lastUpdate < 300) {
+            pendingUpdates[id] = value;
+            return;
+        }
+
+        const hasValidData = isValidTemperature(value);
+
+        if (!hasValidData) {
+            // Error state
+            if (card) {
+                card.classList.add('error-sensor');
+                card.classList.remove('no-data');
+            }
+            if (text) text.innerText = 'ERROR';
+
+            // Hide the gauge line completely
+            gauge.style.stroke = 'transparent';
+            gauge.style.strokeDasharray = `0, ${CIRCUMFERENCE}`;
+            gauge.classList.remove('glow-active', 'striking');
+
+            lastUpdateTimes[id] = now;
+            return;
+        }
+
+        // Valid data state
+        if (card) {
+            card.classList.remove('error-sensor', 'no-data');
+            gauge.classList.add('glow-active');
+        }
+
+        const val = parseFloat(value);
+        const color = getTempColor(val);
+        const targetPct = calculatePercentage(val);
+
+        if (isUpdate) {
+            // Add pulse animation to pod
+            if (pod) {
+                pod.classList.remove('pulse-update');
+                void pod.offsetWidth;
+                pod.classList.add('pulse-update');
+            }
+
+            gauge.style.transition = 'stroke-dasharray 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.1), stroke 0.2s ease';
+            gauge.classList.add('striking');
+            gauge.style.strokeDasharray = `${CIRCUMFERENCE}, 0`;
+
+            setTimeout(() => {
+                gauge.style.transition = 'stroke-dasharray 0.5s cubic-bezier(0.3, 0.8, 0.2, 1.1), stroke 0.3s ease';
+                gauge.style.strokeDasharray = `${targetPct * CIRCUMFERENCE}, ${CIRCUMFERENCE}`;
+
+                setTimeout(() => {
+                    gauge.classList.remove('striking');
+                    gauge.style.stroke = color;
+
+                    if (pendingUpdates[id] && Math.abs(parseFloat(pendingUpdates[id]) - val) > 0.01) {
+                        const pendingVal = pendingUpdates[id];
+                        pendingUpdates[id] = null;
+                        setTimeout(() => updateGauge(id, pendingVal, true), 100);
+                    }
+                }, 150);
+            }, 250);
+        } else {
+            gauge.style.transition = 'stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.4s ease';
+            gauge.style.stroke = color;
+            gauge.style.strokeDasharray = `${targetPct * CIRCUMFERENCE}, ${CIRCUMFERENCE}`;
+        }
+
+        if(text && hasValidData) {
+            text.innerText = val.toFixed(2).padStart(5, '0');
+        }
+
+        lastUpdateTimes[id] = now;
+    }
+
+    function openDiag(id) {
+        const meta = document.getElementById(`meta-${id}`);
+        const currentVal = document.getElementById(`val-${id}`).innerText;
+
+        document.getElementById('diag-title').innerText = meta.dataset.name;
+        document.getElementById('diag-current').innerText = currentVal;
+        document.getElementById('diag-min').innerText = meta.dataset.min + '°';
+        document.getElementById('diag-max').innerText = meta.dataset.max + '°';
+        document.getElementById('diag-avg').innerText = meta.dataset.avg + '°';
+
+        const badge = document.getElementById('diag-health-badge');
+        badge.innerText = meta.dataset.health;
+        badge.style.color = meta.dataset.hcolor;
+        document.getElementById('diag-status-log').innerText = meta.dataset.health;
+
+        document.getElementById('diagOverlay').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        document.getElementById('diagOverlay').dataset.currentDevice = id;
+    }
+
+    function closeDiag() {
+        document.getElementById('diagOverlay').style.display = 'none';
+        document.body.style.overflow = 'auto';
+        document.getElementById('diagOverlay').dataset.currentDevice = '';
+    }
+
+    async function fetchData() {
+        const statusLine = document.getElementById('status-line');
+        const syncIcon = document.getElementById('sync-icon');
+
+        try {
+            const r = await fetch(window.location.href, {
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+                cache: 'no-cache'
+            });
+            const data = await r.json();
+
+            if (data.devices && Array.isArray(data.devices)) {
+                data.devices.forEach((device) => {
+                    if (device && device.id !== undefined) {
+                        const textEl = document.getElementById(`val-${device.id}`);
+
+                        if (textEl) {
+                            const currentDisplayVal = textEl.innerText;
+                            const newVal = device.val;
+
+                            const shouldUpdate =
+                                (currentDisplayVal === 'ERROR' && isValidTemperature(newVal)) ||
+                                (currentDisplayVal !== 'ERROR' && !isValidTemperature(newVal)) ||
+                                (currentDisplayVal !== 'ERROR' && isValidTemperature(newVal) &&
+                                 Math.abs(parseFloat(currentDisplayVal) - parseFloat(newVal)) > 0.01);
+
+                            if (shouldUpdate) {
+                                updateGauge(device.id, newVal, true);
+
+                                const overlay = document.getElementById('diagOverlay');
+                                if (overlay.style.display === 'flex' && overlay.dataset.currentDevice === device.id) {
+                                    document.getElementById('diag-current').innerText =
+                                        isValidTemperature(newVal) ? parseFloat(newVal).toFixed(2).padStart(5, '0') : 'ERROR';
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Update status line
+            statusLine.classList.add('sync-active');
+            if (syncIcon) syncIcon.className = 'fas fa-sync fa-spin me-1';
+            statusLine.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i> LIVE_STREAM_ACTIVE';
+            setTimeout(() => statusLine.classList.remove('sync-active'), 800);
+
+        } catch (error) {
+            console.error("Sync Interrupted:", error);
+            statusLine.style.color = "#ef4444";
+            statusLine.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> CONNECTION_LOST';
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.gauge-circle-fill').forEach((g, i) => {
+            const id = g.id.replace('gauge-', '');
+            if (g.dataset.raw) {
+                setTimeout(() => updateGauge(id, g.dataset.raw, false), i * 150);
+            }
+        });
+
+        setInterval(fetchData, 2000);
+    });
+</script>
+{% endblock %}

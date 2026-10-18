@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="msvalidate.01" content="7784E1550FF6C9C54D290830054C8427" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>{% block title %}Oceamic{% endblock %}</title>
+
+    {% load static %}
+    {% load webpush_notifications %}
+
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+
+    <!-- ANTI-CACHING META TAGS -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <meta name="theme-color" content="#020617">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="{% static 'images/pic2.png' %}">
+
+    <!-- PRELOAD CRITICAL RESOURCES -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" as="style">
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@300;400;600&display=swap" as="style">
+
+    <!-- CRITICAL CSS - Inline to avoid render blocking -->
+    <style>
+        /* Critical CSS - Only essential styles for above the fold */
+        :root {
+            --bg-body: #020617;
+            --bg-header: #0f172a;
+            --bg-card: #000814;
+            --bg-nav: rgba(15, 23, 12, 0.0);
+            --bg-ticker: rgba(0, 0, 0, 0.4);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-terminal: #38bdf8;
+            --border-primary: #38bdf8;
+            --border-soft: rgba(56, 189, 248, 0.2);
+            --accent-glow: rgba(56, 189, 248, 0.4);
+            --accent-hover: rgba(56, 189, 248, 0.1);
+            --terminal-green: #10b981;
+            --terminal-red: #ef4444;
+            --atomic-orange: #f59e0b;
+            --led-color: #38bdf8;
+        }
+
+        [data-theme="light"] {
+            --bg-body: #f1f5f9;
+            --bg-header: #ffffff;
+            --bg-card: #ffffff;
+            --bg-nav: rgba(255, 255, 255, 0.0);
+            --bg-ticker: #e2e8f0;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --text-terminal: #1a6f8b;
+            --border-primary: #1a6f8b;
+            --border-soft: #cbd5e1;
+            --accent-glow: rgba(26, 111, 139, 0.2);
+            --accent-hover: #f8fafc;
+            --terminal-green: #15803d;
+            --terminal-red: #b91c1c;
+            --atomic-orange: #c2410c;
+            --led-color: #1a6f8b;
+        }
+
+        html, body {
+            background-color: var(--bg-body) !important;
+            color: var(--text-main);
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        /* Critical layout styles */
+        .header-app {
+            background: var(--bg-header);
+            border-bottom: 2px solid var(--border-primary);
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            gap: 12px;
+            min-height: 50px;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: var(--bg-nav);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 24px;
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 5px;
+            z-index: 1000;
+            border: 1px solid var(--border-soft);
+        }
+
+        .nav-link-custom {
+            text-align: center;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.65rem;
+            font-weight: 700;
+            flex: 1;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 0;
+        }
+
+        .nav-link-custom i {
+            display: block;
+            font-size: 1.3rem;
+            margin-bottom: 4px;
+        }
+
+        .nav-link-custom.active {
+            color: var(--text-main);
+        }
+
+        .nav-link-custom.active i {
+            color: var(--border-primary);
+        }
+
+        .main-content {
+            padding: 12px 12px 20px;
+            min-height: calc(100vh - 140px);
+        }
+
+        /* Hide loading overlay by default */
+        #loading-overlay {
+            display: none;
+        }
+
+        /* Container for non-critical styles */
+        .non-critical-styles {
+            display: none;
+        }
+    </style>
+
+    <!-- DEFER NON-CRITICAL CSS -->
+    <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@300;400;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    
+    <!-- Non-critical CSS loaded after page render -->
+    <noscript>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    </noscript>
+
+    <!-- DEFER HTMX - Load asynchronously -->
+    <script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
+
+    <!-- Complete CSS (loaded after page render) -->
+    <style id="full-styles" media="print" onload="this.media='all'">
+        /* All non-critical styles moved here */
+        .broadcast-zone {
+            flex-grow: 1;
+            overflow: hidden;
+            white-space: nowrap;
+            background: var(--bg-ticker);
+            border-radius: 6px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border-soft);
+            position: relative;
+        }
+        .ticker-wrap {
+            display: inline-block;
+            white-space: nowrap;
+            padding-right: 100%;
+            animation: ticker 180s linear infinite;
+        }
+        @keyframes ticker {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+        .ticker-item {
+            display: inline-block;
+            padding: 0 25px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-terminal);
+            text-transform: uppercase;
+        }
+        .ticker-sep {
+            color: var(--border-soft);
+            margin: 0 5px;
+            font-weight: 900;
+        }
+        .logo-container {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            background: white;
+            border: 1.5px solid var(--border-primary);
+            border-radius: 10px;
+            box-shadow: 0 0 10px var(--accent-glow);
+            text-decoration: none;
+        }
+        .logo-container img {
+            height: 26px;
+            border-radius: 4px;
+        }
+        .profile-trigger {
+            flex-shrink: 0;
+            width: 38px;
+            height: 38px;
+            background: var(--accent-hover);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid var(--border-primary);
+            color: var(--border-primary);
+            box-shadow: 0 0 8px var(--accent-glow);
+            cursor: pointer;
+        }
+        .theme-switch-wrapper {
+            display: flex;
+            align-items: center;
+            margin-right: 10px;
+        }
+        .theme-btn {
+            width: 38px;
+            height: 38px;
+            background: var(--accent-hover);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid var(--border-primary);
+            color: var(--border-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .theme-btn.led-active {
+            animation: ledPulse 0.8s ease-in-out infinite;
+            border-color: var(--led-color);
+            box-shadow: 0 0 15px var(--led-color);
+        }
+        .theme-btn.led-active i {
+            animation: iconSpin 0.8s ease-in-out infinite;
+        }
+        @keyframes ledPulse {
+            0% { box-shadow: 0 0 5px var(--led-color); border-color: var(--led-color); }
+            50% { box-shadow: 0 0 20px var(--led-color), 0 0 30px var(--led-color); border-color: white; transform: scale(1.05); }
+            100% { box-shadow: 0 0 5px var(--led-color); border-color: var(--led-color); }
+        }
+        @keyframes iconSpin {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(30deg); }
+            75% { transform: rotate(-30deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .user-name-orange {
+            color: var(--atomic-orange) !important;
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+        .dropdown-menu {
+            background: var(--bg-header) !important;
+            border: 1px solid var(--border-primary) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .dropdown-item {
+            color: var(--text-main) !important;
+        }
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-body);
+            opacity: 0;
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.1s ease;
+            pointer-events: none;
+        }
+        #loading-overlay.active {
+            display: flex;
+            opacity: 0.85;
+            pointer-events: auto;
+        }
+        .spinner-custom {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--bg-ticker);
+            border-top: 3px solid var(--border-primary);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .terminal-window {
+            background: var(--bg-card);
+            border: 2px solid var(--border-primary);
+            border-radius: 15px;
+            color: var(--text-terminal);
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        .terminal-header {
+            border-bottom: 1px solid var(--border-primary);
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 15px;
+            background: var(--text-terminal);
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+        .btn-terminal {
+            border: 2px solid transparent;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            transition: 0.3s;
+            width: 100%;
+            cursor: pointer;
+        }
+        .welcome-card {
+            background: var(--bg-modal-gradient);
+            border: 2px solid var(--border-primary);
+            border-radius: 24px;
+            overflow: hidden;
+        }
+        .welcome-header {
+            background: var(--border-primary);
+            color: var(--bg-body);
+            padding: 20px;
+            text-align: center;
+        }
+        .welcome-body {
+            padding: 25px;
+            color: var(--text-muted);
+        }
+        .feature-box {
+            background: var(--accent-hover);
+            border-left: 4px solid var(--border-primary);
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 0 12px 12px 0;
+        }
+        .feature-box h6 {
+            color: var(--text-terminal);
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .notif-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--accent-hover);
+            border-radius: 12px;
+            padding: 12px;
+            margin: 4px 0;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+        .nav-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: transparent;
+            z-index: 10001;
+            pointer-events: none;
+        }
+        .nav-progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--border-primary), var(--terminal-green));
+            transition: width 0.15s ease;
+        }
+        body.htmx-request .bottom-nav,
+        body.htmx-request .nav-link-custom {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+        .main-content {
+            opacity: 1;
+            transition: none;
+        }
+
+        /* Footer Styles */
+        .footer-app {
+            background: var(--bg-header);
+            border-top: 1px solid var(--border-soft);
+            padding: 16px 0;
+            margin-top: 30px;
+            position: relative;
+            z-index: 500;
+            padding-bottom: 90px;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+        }
+
+        .footer-copyright {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .footer-powered {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .footer-link {
+            color: var(--terminal-green);
+            text-decoration: none;
+            font-weight: 700;
+            transition: all 0.2s ease;
+            border-bottom: 1px solid transparent;
+        }
+
+        .footer-link:hover {
+            color: var(--border-primary);
+            border-bottom-color: var(--border-primary);
+        }
+
+        /* Page wrapper for proper layout */
+        .page-wrapper {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Mobile responsive adjustments */
+        @media (max-width: 576px) {
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .footer-copyright,
+            .footer-powered {
+                font-size: 0.65rem;
+            }
+
+            .footer-app {
+                padding-bottom: 100px;
+            }
+        }
+
+        @media (min-width: 577px) {
+            .footer-app {
+                padding-bottom: 100px;
+            }
+        }
+    </style>
+
+    {% webpush_header %}
+</head>
+<body hx-boost="true" hx-indicator="#loading-overlay" hx-push-url="true" hx-history="true" hx-history-elt="#main-content">
+    <!-- Navigation Progress Bar -->
+    <div class="nav-progress" id="nav-progress">
+        <div class="nav-progress-bar" id="nav-progress-bar"></div>
+    </div>
+
+    <!-- INSTANT LOADING OVERLAY -->
+    <div id="loading-overlay"><div class="spinner-custom"></div></div>
+
+    <!-- CRITICAL: Inline minimal JavaScript -->
+    <script>
+        // Minimal inline JS for critical functionality
+        (function() {
+            // Hide overlay immediately
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) overlay.classList.remove('active');
+
+            // Simple theme application
+            const savedTheme = localStorage.getItem('oceamic-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+
+            // HTMX event handlers
+            document.addEventListener('htmx:beforeRequest', function() {
+                const progressBar = document.getElementById('nav-progress-bar');
+                if (progressBar) progressBar.style.width = '30%';
+                const overlay = document.getElementById('loading-overlay');
+                if (overlay) overlay.classList.add('active');
+            });
+
+            document.addEventListener('htmx:afterRequest', function() {
+                const progressBar = document.getElementById('nav-progress-bar');
+                if (progressBar) {
+                    progressBar.style.width = '100%';
+                    setTimeout(() => {
+                        progressBar.style.width = '0%';
+                    }, 200);
+                }
+                const overlay = document.getElementById('loading-overlay');
+                if (overlay) overlay.classList.remove('active');
+            });
+
+            // Update active nav after swap
+            document.addEventListener('htmx:afterSwap', function() {
+                const currentPath = window.location.pathname;
+                document.querySelectorAll('.nav-link-custom').forEach(nav => {
+                    const href = nav.getAttribute('href');
+                    if (href) {
+                        if (currentPath === href ||
+                            (currentPath === '/' && href === '/') ||
+                            (currentPath === '/detailed-status/' && href === '/detailed-status/') ||
+                            (currentPath === '/choice/' && href === '/choice/') ||
+                            (currentPath === '/notifications/all/' && href === '/notifications/all/')) {
+                            nav.classList.add('active');
+                        } else {
+                            nav.classList.remove('active');
+                        }
+                    }
+                });
+
+                // Re-initialize page scripts
+                setTimeout(function() {
+                    const mainContent = document.getElementById('main-content');
+                    if (!mainContent) return;
+
+                    if (document.getElementById('device-container')) {
+                        if (typeof window.initHomePage === 'function') {
+                            window.initHomePage();
+                        }
+                    } else if (document.querySelector('.manometer-card')) {
+                        if (typeof window.initChoicePage === 'function') {
+                            window.initChoicePage();
+                        }
+                    } else if (document.getElementById('multiChartsList') || document.querySelector('.chart-wrapper')) {
+                        if (typeof window.initChartPages === 'function') {
+                            window.initChartPages();
+                        }
+                    } else if (document.querySelector('.analysis-container')) {
+                        if (typeof window.initAnalysisPage === 'function') {
+                            window.initAnalysisPage();
+                        }
+                    }
+                }, 50);
+            });
+        })();
+    </script>
+
+    <div class="modal fade" id="onboardingModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content welcome-card border-0">
+                <div class="welcome-header">
+                    <i class="fa-solid fa-rocket mb-2" style="font-size: 2.5rem;"></i>
+                    <h4 class="fw-bolder mb-0">Oceamic v2.0</h4>
+                </div>
+                <div class="welcome-body">
+                    <p class="small text-center mb-4">Your monitoring system has been upgraded with Light & Dark capabilities.</p>
+                    <div class="feature-box">
+                        <h6><i class="fa-solid fa-circle-half-stroke me-2"></i>Adaptive Themes</h6>
+                        <p class="mb-0 small">Switch between High-Tech Dark and Professional Light mode instantly.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h6><i class="fa-solid fa-microchip me-2"></i>Real-Time Monitor</h6>
+                        <p class="mb-0 small">Instant temperature tracking for all your specialized tem/hum.</p>
+                    </div>
+                    <div class="mt-4">
+                        <button class="btn w-100 fw-bold py-3 rounded-4" style="background: var(--terminal-green); color: white;" onclick="enableAndClose()">
+                            <i class="fa-solid fa-check-circle me-2"></i>CONFIRM & START
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="terminalModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-transparent border-0">
+                <div class="terminal-window">
+                    <div class="terminal-header">
+                        <span><i class="fas fa-terminal me-2"></i>SYSTEM_COMMAND_V3</span>
+                        <button type="button" class="btn-close {% if request.COOKIES.theme != 'light' %}btn-close-white{% endif %}" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="terminal-body" id="terminalOutput"></div>
+                    <div id="hidden-webpush" style="display: none;">{% webpush_button %}</div>
+                    <div class="terminal-actions mt-3">
+                        <button id="btn-subscribe" class="btn-terminal" onclick="handleAction('subscribe')">Enable Alerts</button>
+                        <button id="btn-unsubscribe" class="btn-terminal mt-2" onclick="handleAction('unsubscribe')">Disable Alerts</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE WRAPPER -->
+    <div class="page-wrapper">
+        <header class="header-app">
+            <a href="{% url 'home' %}" class="logo-container" hx-boost="false">
+                <img src="{% static 'images/pic2.png' %}" alt="Logo" width="26" height="26">
+            </a>
+
+            <div class="broadcast-zone">
+                <div class="ticker-wrap" id="broadcastTicker">
+                    <span class="ticker-item"><i class="fa-solid fa-satellite-dish"></i> ESTABLISHING LIVE STREAM...</span>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center">
+                <div class="theme-switch-wrapper">
+                    <button class="theme-btn" id="themeToggler" onclick="toggleMode()">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
+                </div>
+
+                <div class="dropdown">
+                    <button class="profile-trigger" id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" aria-labelledby="profileDropdown">
+                        <li class="mb-2 text-center"><span class="user-name-orange">{{ user.username }}</span></li>
+                        <li class="notif-row" onclick="openTerminal()">
+                            <span class="small fw-bold"><i class="fa-solid fa-bell me-2"></i> Alerts: <span id="nav-status-badge">...</span></span>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="POST" action="{% url 'logout' %}" id="logout-form">{% csrf_token %}
+                                <button type="submit" class="dropdown-item text-danger fw-bold border-0 bg-transparent w-100 text-start">
+                                    <i class="fa-solid fa-power-off me-2"></i>Sign Out
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <main class="container-fluid pt-3 pb-5 main-content" id="main-content">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- FOOTER - Only ONE footer -->
+        <footer class="footer-app">
+            <div class="container-fluid">
+                <div class="footer-content">
+                    <div class="footer-left">
+                        <span class="footer-copyright">
+                            &copy; {% now "Y" %} OCEAMIC II — All Rights Reserved
+                        </span>
+                    </div>
+                    <div class="footer-right">
+                        <span class="footer-powered">
+                            Powered by <a href="https://oceanremote.net" target="_blank" rel="noopener noreferrer" class="footer-link">OceanRemote.net</a>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="bottom-nav">
+        <a href="{% url 'home' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'home' %}active{% endif %}" hx-boost="true" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+            <i class="fa-solid fa-house"></i>Home
+        </a>
+        <a href="{% url 'detailed_status' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'detailed_status' %}active{% endif %}" hx-boost="true" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+            <i class="fa-solid fa-list-check"></i>COP
+        </a>
+        <a href="{% url 'choice' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'choice' %}active{% endif %}" hx-boost="true" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+            <i class="fa-solid fa-gauge"></i>Gauges
+        </a>
+        <a href="{% url 'notifications_all' %}" class="nav-link-custom {% if 'notifications' in request.path %}active{% endif %}" hx-boost="true" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+            <i class="fa-solid fa-circle-exclamation"></i>Notifications
+        </a>
+    </nav>
+
+    <!-- DEFER Bootstrap & Font Awesome -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
+    
+    <!-- Non-critical JavaScript loaded after page render -->
+    <script defer>
+        /* ==========================================================================
+           NON-CRITICAL JAVASCRIPT - Loaded after page render
+           ========================================================================== */
+        let isChangingTheme = false;
+
+        function toggleMode() {
+            if (isChangingTheme) return;
+            const themeBtn = document.getElementById('themeToggler');
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const targetTheme = currentTheme === 'light' ? 'dark' : 'light';
+            isChangingTheme = true;
+            themeBtn.classList.add('led-active');
+            localStorage.setItem('oceamic-theme', targetTheme);
+            document.getElementById('loading-overlay').classList.add('active');
+            setTimeout(() => {
+                themeBtn.classList.remove('led-active');
+                themeBtn.classList.add('led-complete');
+                location.reload();
+            }, 800);
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            const icon = document.querySelector('#themeToggler i');
+            if (theme === 'light') {
+                if(icon) icon.className = 'fa-solid fa-sun';
+            } else {
+                if(icon) icon.className = 'fa-solid fa-moon';
+            }
+        }
+
+        // Apply theme after DOM ready
+        const savedTheme = localStorage.getItem('oceamic-theme') || 'dark';
+        applyTheme(savedTheme);
+
+        const terminalModalObj = new bootstrap.Modal(document.getElementById('terminalModal'));
+        const onboardingModalObj = new bootstrap.Modal(document.getElementById('onboardingModal'));
+
+        function openTerminal() { terminalModalObj.show(); updateTerminalStatus(); }
+
+        function enableAndClose() {
+            handleAction('subscribe');
+            onboardingModalObj.hide();
+        }
+
+        function handleAction(type) {
+            const realBtn = document.querySelector('#hidden-webpush button');
+            if (realBtn) realBtn.click();
+        }
+
+        async function updateTerminalStatus() {
+            const isSubscribed = Notification.permission === 'granted';
+            const navBadge = document.getElementById('nav-status-badge');
+            const out = document.getElementById('terminalOutput');
+            if (isSubscribed) {
+                navBadge.className = "badge bg-success"; navBadge.innerText = "LIVE";
+                out.innerHTML = "> SYSTEM: SECURE<br>> ALERTS: ACTIVE<span class='cursor'></span>";
+            } else {
+                navBadge.className = "badge bg-danger"; navBadge.innerText = "OFF";
+                out.innerHTML = "> SYSTEM: IDLE<br>> ALERTS: STANDBY<span class='cursor'></span>";
+            }
+        }
+
+        async function fetchBroadcast() {
+            try {
+                const response = await fetch('/get-latest-notifications/');
+                const data = await response.json();
+                const ticker = document.getElementById('broadcastTicker');
+                if (data.notifications && data.notifications.length > 0) {
+                    let content = '';
+                    data.notifications.forEach(n => {
+                        content += `<span class="ticker-item"><i class="fa-solid fa-microchip"></i> ${n.device}: ${n.message} <small>[${n.time}]</small></span><span class="ticker-sep">||</span>`;
+                    });
+                    ticker.innerHTML = content + content;
+                }
+            } catch (err) { console.warn("Sync Standby"); }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!localStorage.getItem('v2_onboarding_done')) {
+                setTimeout(() => onboardingModalObj.show(), 1000);
+                localStorage.setItem('v2_onboarding_done', 'true');
+            }
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('{% static "js/sw-v4.js" %}?v=506');
+            }
+            fetchBroadcast();
+            setInterval(fetchBroadcast, 60000);
+            updateTerminalStatus();
+            isChangingTheme = false;
+        });
+    </script>
+</body>
+</html>

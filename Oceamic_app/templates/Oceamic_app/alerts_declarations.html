@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Alerts | {{ device.device_id }}{% endblock %}
+
+{% block content %}
+<style>
+    .page-title { font-weight: 800; color: var(--brand-dark); font-size: 1.4rem; margin-bottom: 5px; }
+    .page-subtitle { color: #64748b; font-size: 0.85rem; margin-bottom: 20px; }
+
+    /* Summary Card for Nominal Temp */
+    .summary-bar {
+        background: white; border-radius: 16px; padding: 15px;
+        border: 1px solid #e2e8f0; margin-bottom: 15px;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .stat-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 700; }
+    .stat-value { font-size: 1.1rem; font-weight: 800; color: var(--brand-primary); }
+
+    /* Filter Card */
+    .filter-section {
+        background: white; border-radius: 16px; padding: 15px;
+        border: 1px solid #e2e8f0; margin-bottom: 20px;
+    }
+
+    /* Table Styling */
+    .alerts-card {
+        background: white; border-radius: 20px; 
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden;
+        border: 1px solid #e2e8f0;
+    }
+    .table th { background: #f8fafc; color: #64748b; font-size: 0.7rem; text-transform: uppercase; padding: 12px 15px; }
+    .table td { vertical-align: middle; padding: 12px 15px; border-top: 1px solid #f1f5f9; }
+
+    /* Pill Badges */
+    .pill { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; text-align: center; }
+    .pill-temp { background: #1e293b; color: #f9d71c; }
+    .pill-nom { background: #e0f2fe; color: #0369a1; }
+    .pill-thresh { background: #fee2e2; color: #b91c1c; }
+
+    /* Note Section */
+    .note-box { font-size: 0.85rem; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 8px; }
+    .btn-save { background: var(--brand-primary); color: white; border: none; font-weight: 600; font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; }
+    .btn-del { color: #ef4444; background: none; border: none; font-size: 0.8rem; }
+</style>
+
+<div class="header-content">
+    <h1 class="page-title">Alert Declarations</h1>
+    <p class="page-subtitle">
+        {% if device.device_id == 'device1' %}Négative-1 U2{% elif device.device_id == 'device2' %}Positive U2{% elif device.device_id == 'device3' %}Ingrédients U2{% elif device.device_id == 'device4' %}Positive U1{% elif device.device_id == 'device5' %}Négative-2 U2{% elif device.device_id == 'device6' %}Ingrédients U1{% else %}{{ device.device_id }}{% endif %}
+    </p>
+</div>
+
+<div class="summary-bar">
+    <div>
+        <div class="stat-label">Daily Nominal Temp</div>
+        <div class="stat-value">{% if nominal_temperature %}{{ nominal_temperature }}°C{% else %}--{% endif %}</div>
+    </div>
+    <i class="fas fa-chart-area" style="color: #e2e8f0; font-size: 1.5rem;"></i>
+</div>
+
+<div class="filter-section">
+    <form method="get" class="row g-2">
+        <div class="col-8">
+            <input type="date" class="form-control" name="date" value="{{ date_filter }}" required>
+        </div>
+        <div class="col-4">
+            <button type="submit" class="btn btn-primary w-100 fw-bold" style="background: var(--brand-primary); border: none;">Filter</button>
+        </div>
+    </form>
+</div>
+
+<div class="alerts-card">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Alert Temp</th>
+                    <th>Nominal</th>
+                    <th>Time</th>
+                    <th>Actions/Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr>
+                    <td>
+                        <div class="pill pill-temp">{{ alert.temperature }}°C</div>
+                        <div class="mt-1" style="font-size: 0.65rem; color: #b91c1c; font-weight: 600;">Threshold: {{ alert.threshold }}°C</div>
+                    </td>
+                    <td><span class="pill pill-nom">{{ nominal_temperature|default:"--" }}°C</span></td>
+                    <td class="fw-bold" style="font-size: 0.85rem;">{{ alert.timestamp|time:"H:i" }}</td>
+                    <td>
+                        <form method="post">
+                            {% csrf_token %}
+                            <textarea class="form-control note-box" name="note_{{ alert.id }}" rows="2" placeholder="Describe correction...">{{ alert.notes }}</textarea>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <button type="submit" class="btn-save">Save Note</button>
+                                {% if alert.notes %}
+                                <button type="submit" name="delete_note_{{ alert.id }}" class="btn-del">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <i class="fas fa-check-double mb-2" style="font-size: 2rem; color: #10b981;"></i>
+                        <p class="text-muted small">No alerts for this period.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Ensure the "Charging" overlay from base.html shows when saving notes
+    document.querySelectorAll('form').forEach(f => {
+        f.addEventListener('submit', () => {
+            const overlay = document.getElementById('charging-overlay');
+            if(overlay) overlay.style.display = 'flex';
+        });
+    });
+</script>
+{% endblock %}

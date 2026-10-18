@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block title %}Chart | {{ device_name }}{% endblock %}
+
+{% block content %}
+<style>
+    /* --- THEME VARIABLE ENGINE (stylealpha) --- 
+       Designed for high-contrast technical monitoring.
+    */
+    :root {
+        --bg-main: #0a0e14;
+        --card-bg: #0f172a;
+        --card-border: rgba(56, 189, 248, 0.15);
+        --text-header: #38bdf8;
+        --text-sub: rgba(255, 255, 255, 0.4);
+        --stat-box-bg: rgba(0, 0, 0, 0.3);
+        --grid-color: rgba(255, 255, 255, 0.05);
+        --input-bg: #1e293b;
+        --input-border: #334155;
+        --glow-yellow: #fbbf24;
+        --terminal-blue: #38bdf8;
+        --soft-red: #ef4444;
+    }
+
+    [data-theme="light"] {
+        --bg-main: #f8fafc;
+        --card-bg: #ffffff;
+        --card-border: #e2e8f0;
+        --text-header: #0284c7;
+        --text-sub: #64748b;
+        --stat-box-bg: #f1f5f9;
+        --grid-color: #e2e8f0;
+        --input-bg: #ffffff;
+        --input-border: #cbd5e1;
+        --terminal-blue: #0284c7;
+    }
+
+    body { 
+        background-color: var(--bg-main); 
+        transition: background 0.3s ease; 
+        margin: 0;
+        padding: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    .analysis-container { 
+        padding: 10px; 
+        max-width: 1200px; 
+        margin: 0 auto; 
+    }
+
+    /* --- PULSING ANIMATION --- */
+    @keyframes yellow-pulse {
+        0% { box-shadow: 0 0 5px rgba(251, 191, 36, 0.4); border-color: rgba(251, 191, 36, 0.5); }
+        50% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.8); border-color: rgba(251, 191, 36, 1); }
+        100% { box-shadow: 0 0 5px rgba(251, 191, 36, 0.4); border-color: rgba(251, 191, 36, 0.5); }
+    }
+
+    /* --- TOP HEADER --- */
+    .top-header-section { margin-bottom: 15px; text-align: center; }
+    .device-title {
+        color: var(--text-header);
+        font-weight: 800; font-size: 1.1rem;
+        text-transform: uppercase; margin-bottom: 10px;
+        letter-spacing: 1px;
+    }
+    .calendar-row {
+        display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
+    }
+
+    /* --- THE CHART CARD --- */
+    .chart-card {
+        background: var(--card-bg);
+        border-radius: 20px;
+        padding: 15px;
+        border: 1px solid var(--card-border);
+        display: flex; 
+        flex-direction: column;
+        transition: background 0.3s ease;
+        position: relative;
+    }
+
+    /* --- CRITICAL FULLSCREEN OVERRIDE --- 
+       Ensures chart + stats fit 100% height without scrolling.
+    */
+    .chart-card:fullscreen {
+        width: 100vw;
+        height: 100vh;
+        padding: 10px;
+        border-radius: 0;
+        background: var(--bg-main);
+        justify-content: space-between;
+    }
+
+    .btn-fs-pulsing {
+        background: rgba(251, 191, 36, 0.1);
+        border: 2px solid var(--glow-yellow);
+        color: var(--glow-yellow);
+        padding: 10px 14px; border-radius: 10px;
+        font-weight: 900; font-size: 0.7rem;
+        cursor: pointer; animation: yellow-pulse 2s infinite;
+        align-self: flex-start; 
+        margin-bottom: 10px;
+        z-index: 10;
+    }
+
+    /* Dynamic sizing for the wrapper */
+    .chart-wrapper { 
+        position: relative; 
+        width: 100%; 
+        height: 320px; /* Default height */
+        flex-grow: 1; 
+        min-height: 0; /* Important for flex-shrink/grow behavior */
+    }
+    
+    /* Fullscreen specific wrapper sizing */
+    .chart-card:fullscreen .chart-wrapper {
+        height: calc(100vh - 180px); /* Leave room for buttons and stats */
+    }
+
+    @media (min-width: 768px) { .chart-wrapper { height: 480px; } }
+
+    /* --- STATS FOOTER --- */
+    .stats-footer {
+        display: grid; 
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px; 
+        margin-top: 15px;
+        padding-top: 15px; 
+        border-top: 1px solid var(--grid-color);
+        flex-shrink: 0;
+    }
+    
+    .stat-item {
+        padding: 10px 5px; border-radius: 12px; 
+        background: var(--stat-box-bg);
+        text-align: center; font-family: 'Courier New', monospace; font-weight: 800;
+        font-size: 0.9rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border: 1px solid var(--grid-color);
+    }
+    .stat-label { font-size: 0.6rem; opacity: 0.6; color: var(--text-sub); margin-bottom: 2px; }
+    .stat-min { color: var(--terminal-blue); border-bottom: 3px solid var(--terminal-blue); }
+    .stat-avg { color: var(--glow-yellow); border-bottom: 3px solid var(--glow-yellow); }
+    .stat-max { color: var(--soft-red); border-bottom: 3px solid var(--soft-red); }
+
+    /* --- INPUT STYLES --- */
+    .input-date-custom {
+        background: var(--input-bg); border: 1px solid var(--input-border); 
+        color: var(--text-header);
+        padding: 10px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 0.85rem;
+        outline: none;
+    }
+    .btn-execute {
+        background: var(--terminal-blue); color: white; border: none;
+        padding: 10px 20px; border-radius: 10px; font-weight: 900; font-size: 0.85rem;
+        cursor: pointer;
+    }
+
+    .multi-btn-container { margin-top: 30px; display: flex; justify-content: center; padding-bottom: 20px; }
+    .btn-multi-link {
+        background: rgba(139, 92, 246, 0.05); color: #a78bfa !important;
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        padding: 12px 24px; border-radius: 50px;
+        font-weight: 800; font-size: 0.8rem; text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    .btn-multi-link:hover { background: rgba(139, 92, 246, 0.15); border-color: #a78bfa; }
+
+    @media print { .no-print { display: none !important; } }
+
+    /* Fix for small phones in landscape */
+    @media (max-height: 500px) and (orientation: landscape) {
+        .chart-card:fullscreen .stats-footer { margin-top: 5px; padding-top: 5px; }
+        .stat-item { padding: 4px; }
+        .device-title { font-size: 0.9rem; margin-bottom: 5px; }
+    }
+</style>
+
+<div class="analysis-container">
+    <div class="top-header-section no-print">
+        <h1 class="device-title">{{ device_name }}</h1>
+        <form method="get" class="calendar-row">
+            <input type="date" name="date" value="{{ selected_date }}" class="input-date-custom">
+            <button type="submit" class="btn-execute">EXECUTE</button>
+        </form>
+    </div>
+
+    <div class="chart-card" id="fullscreenTarget">
+        <div class="no-print" style="display: flex; justify-content: space-between; align-items: center;">
+            <button class="btn-fs-pulsing" onclick="toggleFullscreen()">
+                <i class="fas fa-expand-arrows-alt me-1"></i> FULLSCREEN CHARTG
+            </button>
+        </div>
+
+        <div class="chart-wrapper">
+            <canvas id="chartGCanvas"></canvas>
+        </div>
+
+        <div class="stats-footer">
+            <div class="stat-item stat-min">
+                <span class="stat-label">MINIMUM</span>
+                <span>{{ min_temp|default:"--"|floatformat:1 }}°C</span>
+            </div>
+            <div class="stat-item stat-avg">
+                <span class="stat-label">AVERAGE</span>
+                <span>{{ avg_temp|default:"--"|floatformat:1 }}°C</span>
+            </div>
+            <div class="stat-item stat-max">
+                <span class="stat-label">MAXIMUM</span>
+                <span>{{ max_temp|default:"--"|floatformat:1 }}°C</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="multi-btn-container no-print">
+        <a href="{% url 'multi_device_chart' device_id=device_id %}" class="btn-multi-link">
+            <i class="fas fa-layer-group me-2"></i> SYSTEM MULTI-CHART ACCESS
+        </a>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@0.1.1"></script>
+
+<script>
+    let myChart;
+
+    function toggleFullscreen() {
+        const elem = document.getElementById('fullscreenTarget');
+        
+        if (!document.fullscreenElement) {
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().then(handleOrientation);
+            } else if (elem.webkitRequestFullscreen) { /* Safari */
+                elem.webkitRequestFullscreen().then(handleOrientation);
+            } else if (elem.msRequestFullscreen) { /* IE11 */
+                elem.msRequestFullscreen().then(handleOrientation);
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+            if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+            }
+        }
+    }
+
+    function handleOrientation() {
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch((err) => {
+                console.warn("Landscape lock not supported on this device/browser.");
+            });
+        }
+    }
+
+    function resizeChart() {
+        if (myChart) {
+            myChart.resize();
+        }
+    }
+
+    // Listener for fullscreen change to trigger resize
+    document.addEventListener('fullscreenchange', () => {
+        setTimeout(resizeChart, 200);
+    });
+
+    window.addEventListener('resize', resizeChart);
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const timestamps = JSON.parse('{{ timestamps|escapejs }}');
+        const temperatures = JSON.parse('{{ temperatures|escapejs }}');
+        const ctx = document.getElementById('chartGCanvas').getContext('2d');
+        
+        const styles = getComputedStyle(document.body);
+        const gridColor = styles.getPropertyValue('--grid-color').trim();
+        const subTextColor = styles.getPropertyValue('--text-sub').trim();
+        const accentColor = styles.getPropertyValue('--terminal-blue').trim();
+
+        // --- SMART UNBRIGHT GRADIENT ---
+        let r = 56, g = 189, b = 248; 
+        if (accentColor.includes('#')) {
+            r = parseInt(accentColor.slice(1,3), 16);
+            g = parseInt(accentColor.slice(3,5), 16);
+            b = parseInt(accentColor.slice(5,7), 16);
+        }
+
+        const grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.08)`); 
+        grad.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, 0.01)`);
+        grad.addColorStop(1, 'transparent');
+
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: timestamps,
+                datasets: [{
+                    label: 'TEMP',
+                    data: temperatures,
+                    borderColor: accentColor,
+                    borderWidth: 2,
+                    backgroundColor: grad,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Allows the flexbox to control height
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#38bdf8',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(56, 189, 248, 0.3)',
+                        borderWidth: 1,
+                        padding: 10,
+                        bodyFont: { family: 'monospace' }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { 
+                            unit: 'hour', 
+                            displayFormats: { hour: 'HH:mm' } 
+                        },
+                        grid: { display: false },
+                        ticks: { 
+                            color: subTextColor, 
+                            font: { size: 10 },
+                            maxTicksLimit: 8
+                        }
+                    },
+                    y: {
+                        grid: { color: gridColor },
+                        ticks: { 
+                            color: subTextColor, 
+                            font: { size: 10 }, 
+                            callback: (v) => v + '°' 
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

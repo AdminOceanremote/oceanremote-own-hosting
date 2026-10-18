@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Alert Control | stylealpha{% endblock %}
+
+{% block content %}
+<style>
+    /* --- THEME VARIABLE ENGINE --- */
+    :root { 
+        --bg-main: #0a0e14;
+        --card-bg: #0f172a;
+        --panel-bg: #1e293b;
+        --text-main: #ffffff;
+        --text-sub: #cbd5e1;
+        --terminal-blue: #38bdf8; 
+        --glow-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+        --card-border: rgba(56, 189, 248, 0.2);
+        --row-border: rgba(255,255,255,0.05);
+    }
+
+    [data-theme="light"] {
+        --bg-main: #f1f5f9;
+        --card-bg: #ffffff;
+        --panel-bg: #f8fafc;
+        --text-main: #1e293b;
+        --text-sub: #64748b;
+        --terminal-blue: #0284c7;
+        --glow-shadow: 0 0 10px rgba(2, 132, 199, 0.1);
+        --card-border: #e2e8f0;
+        --row-border: #e2e8f0;
+    }
+
+    body { background-color: var(--bg-main); transition: background 0.3s ease; color: var(--text-main); }
+
+    /* --- INDUSTRIAL TERMINAL HEADER --- */
+    .page-header { 
+        margin-bottom: 1.5rem; 
+        padding: 20px; 
+        background: linear-gradient(90deg, rgba(56, 189, 248, 0.1) 0%, transparent 100%);
+        border-left: 5px solid var(--terminal-blue);
+        border-bottom: 1px solid var(--card-border);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .page-header::after {
+        content: "";
+        position: absolute;
+        top: 0; right: 0;
+        width: 30px; height: 30px;
+        background: linear-gradient(225deg, var(--terminal-blue) 12%, transparent 12.5%);
+        opacity: 0.6;
+    }
+
+    .page-title { 
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: 900; 
+        color: var(--text-main); 
+        font-size: 1.3rem; 
+        text-transform: uppercase; 
+        letter-spacing: 2px; 
+        margin: 0;
+        text-shadow: var(--glow-shadow);
+    }
+
+    .access-tag { 
+        display: inline-block;
+        margin-top: 8px;
+        padding: 2px 8px;
+        background: rgba(56, 189, 248, 0.1);
+        border: 1px solid var(--terminal-blue);
+        color: var(--terminal-blue);
+        font-family: monospace;
+        font-size: 0.65rem;
+        font-weight: 800;
+        border-radius: 4px;
+        animation: blink 2.5s infinite;
+    }
+
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* --- CONFIGURATION CARD --- */
+    .glass-card { 
+        background: var(--card-bg); 
+        border-radius: 20px; padding: 22px; 
+        border: 1px solid var(--card-border); 
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+        margin-bottom: 1.5rem; 
+    }
+    
+    .form-label { font-weight: 800; font-size: 0.65rem; color: var(--terminal-blue); text-transform: uppercase; margin-bottom: 6px; display: block; }
+    
+    .form-control, .form-select { 
+        background: var(--panel-bg) !important;
+        border: 1px solid var(--card-border); 
+        border-radius: 10px; padding: 12px; 
+        color: var(--text-main) !important; font-weight: bold; font-size: 0.95rem;
+        outline: none;
+    }
+
+    .btn-execute {
+        background: var(--terminal-blue); color: #fff;
+        border: none; padding: 14px; border-radius: 12px;
+        font-weight: 900; text-transform: uppercase; width: 100%;
+        transition: 0.3s; font-size: 0.85rem; letter-spacing: 1px;
+    }
+    .btn-execute:active { transform: scale(0.98); opacity: 0.8; }
+
+    /* --- DESKTOP TABLE --- */
+    @media (min-width: 768px) {
+        .mobile-only { display: none !important; }
+        .table-container { background: var(--card-bg); border-radius: 20px; border: 1px solid var(--card-border); overflow: hidden; }
+        th { background: rgba(56, 189, 248, 0.05); padding: 18px; font-size: 0.65rem; font-weight: 800; color: var(--terminal-blue); text-transform: uppercase; }
+        td { padding: 18px; border-top: 1px solid var(--row-border); color: var(--text-sub); vertical-align: middle; }
+    }
+
+    /* --- MOBILE OPTIMIZATIONS --- */
+    @media (max-width: 767.98px) {
+        .desktop-only { display: none !important; }
+        .mobile-card { 
+            background: var(--card-bg); border-radius: 18px; padding: 16px; 
+            margin-bottom: 12px; border: 1px solid var(--card-border); 
+        }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .stat-item { 
+            background: var(--panel-bg); padding: 12px; border-radius: 12px; 
+            border: 1px solid var(--row-border); text-align: center;
+        }
+        .stat-label { font-size: 0.55rem; color: var(--terminal-blue); font-weight: 900; text-transform: uppercase; }
+        .stat-val { font-size: 1.1rem; font-weight: 800; color: var(--text-main); font-family: monospace; display: block; }
+        .card-footer-flex {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-top: 12px; border-top: 1px solid var(--row-border);
+        }
+    }
+
+    .chamber-badge { color: var(--terminal-blue); font-weight: 800; font-family: monospace; font-size: 0.85rem; text-decoration: underline; text-underline-offset: 4px; }
+    .temp-pill { background: rgba(56, 189, 248, 0.1); color: var(--text-main); padding: 5px 12px; border-radius: 8px; font-family: monospace; font-weight: 900; border: 1px solid var(--terminal-blue); font-size: 0.9rem; box-shadow: var(--glow-shadow); }
+    .switch-label { font-size: 0.7rem; font-weight: 900; color: var(--text-sub); text-transform: uppercase; margin-right: 12px; }
+    
+    .form-check-input { width: 2.8em !important; height: 1.4em !important; cursor: pointer; background-color: rgba(128,128,128,0.2); border-color: var(--card-border); }
+    .form-check-input:checked { background-color: var(--terminal-blue); border-color: var(--terminal-blue); }
+</style>
+
+<div class="page-header">
+    <h1 class="page-title">Alert Control Center</h1>
+    <div class="access-tag">[ ACCESS LEVEL: Administrateur ]</div>
+</div>
+
+<div class="glass-card">
+    <form method="POST" action="{% url 'set_alert' %}">
+        {% csrf_token %}
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Active Chamber</label>
+                <select class="form-select" name="device_id">
+                    {% for device in devices %}
+                        <option value="{{ device.device_id }}" {% if device.device_id == current_device_id %}selected{% endif %}>
+                            {{ device.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Critical_Limit (°C)</label>
+                <input type="number" class="form-control" name="threshold" step="0.1" required placeholder="0.0">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Sync_Freq (min)</label>
+                <input type="number" class="form-control" name="alert_frequency" step="1" required placeholder="15">
+            </div>
+            <div class="col-12 mt-4">
+                <button type="submit" class="btn-execute shadow-sm">Commit_Changes</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="table-container desktop-only">
+    <table class="table table-hover mb-0" style="color: inherit;">
+        <thead>
+            <tr>
+                <th>System_ID</th>
+                <th>Live_Temp</th>
+                <th>Threshold</th>
+                <th>Frequency</th>
+                <th class="text-end">Status_Control</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device in devices %}
+            <tr>
+                <td><span class="chamber-badge">{{ device.name }}</span></td>
+                <td>
+                    {% if device.temperature %}
+                        <span class="temp-pill">{{ device.temperature.temperature }}°C</span>
+                    {% else %}
+                        <span class="text-muted small">OFFLINE</span>
+                    {% endif %}
+                </td>
+                <td><span class="fw-bold">{{ device.threshold.threshold|default:"--" }}°C</span></td>
+                <td><span class="opacity-75">{{ device.threshold.alert_frequency|default:"--" }} MIN</span></td>
+                <td class="text-end">
+                    {% if device.threshold %}
+                    <div class="d-flex align-items-center justify-content-end gap-3">
+                        <form method="POST" action="{% url 'toggle_alert' device_id=device.device_id %}" class="d-flex align-items-center">
+                            {% csrf_token %}
+                            <span class="switch-label">Monitor</span>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="alert_status" {% if device.threshold.alert_triggered %}checked{% endif %} onchange="this.form.submit()">
+                            </div>
+                        </form>
+                        <form method="POST" action="{% url 'delete_alert' device_id=device.device_id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm text-danger border-0 p-0"><i class="fas fa-trash-alt"></i></button>
+                        </form>
+                    </div>
+                    {% else %}
+                        <span class="text-muted small opacity-50">UNCONFIGURED</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mobile-only">
+    {% for device in devices %}
+    <div class="mobile-card">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="chamber-badge">{{ device.name }}</span>
+            {% if device.temperature %}
+                <span class="temp-pill">{{ device.temperature.temperature }}°C</span>
+            {% else %}
+                <span class="text-muted" style="font-size: 0.6rem;">[ OFFLINE ]</span>
+            {% endif %}
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat-item">
+                <span class="stat-label">Limit</span>
+                <span class="stat-val">{{ device.threshold.threshold|default:"--" }}°</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Freq</span>
+                <span class="stat-val">{{ device.threshold.alert_frequency|default:"--" }}m</span>
+            </div>
+        </div>
+
+        <div class="card-footer-flex">
+            {% if device.threshold %}
+            <form method="POST" action="{% url 'toggle_alert' device_id=device.device_id %}" class="d-flex align-items-center">
+                {% csrf_token %}
+                <span class="switch-label">Alerts</span>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="alert_status" {% if device.threshold.alert_triggered %}checked{% endif %} onchange="this.form.submit()">
+                </div>
+            </form>
+            <form method="POST" action="{% url 'delete_alert' device_id=device.device_id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm text-danger fw-bold border-0 py-0" style="font-size: 0.7rem; letter-spacing: 1px;">RESET</button>
+            </form>
+            {% else %}
+                <span class="text-muted w-100 text-center py-2" style="font-size: 0.65rem; font-family: monospace;">STATUS: NOT_CONFIGURED</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

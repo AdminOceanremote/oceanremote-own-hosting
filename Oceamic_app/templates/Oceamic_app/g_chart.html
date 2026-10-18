@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Multi Analysis | ChartG{% endblock %}
+
+{% block content %}
+<style>
+    :root { --ocean-blue: #1a6f8b; }
+    .analysis-container { padding: 10px; max-width: 1200px; margin: 0 auto; }
+
+    /* Header & Back Button */
+    .page-header {
+        display: flex; flex-direction: column; gap: 15px; margin-bottom: 1.5rem;
+    }
+    @media (min-width: 768px) {
+        .page-header { flex-direction: row; justify-content: space-between; align-items: center; }
+    }
+
+    .btn-back {
+        display: inline-flex; align-items: center; gap: 8px;
+        color: #64748b; font-weight: 600; text-decoration: none;
+        transition: color 0.2s; font-size: 0.9rem;
+    }
+    .btn-back:hover { color: var(--ocean-blue); }
+
+    /* chartG Card Styling */
+    .multi-chart-card {
+        background: white; border-radius: 16px; border: 1px solid #e2e8f0;
+        padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }
+
+    .chart-wrapper { height: 300px; position: relative; width: 100%; margin: 15px 0; }
+
+    .stats-strip {
+        display: flex; justify-content: space-around; background: #f8fafc;
+        padding: 10px; border-radius: 10px; border: 1px solid #f1f5f9;
+    }
+    .stat-item { text-align: center; }
+    .stat-label { font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; display: block; }
+    .stat-val { font-size: 0.9rem; font-weight: 700; color: #334155; }
+
+    /* Date Selector */
+    .date-controls {
+        display: flex; gap: 8px; background: #f1f5f9; padding: 6px; border-radius: 12px;
+    }
+    #multiDatePicker { border: none; background: transparent; font-weight: 600; outline: none; padding: 4px 10px; }
+    .btn-update { background: var(--ocean-blue); color: white; border: none; padding: 6px 16px; border-radius: 8px; font-weight: 600; }
+
+    @media print { .no-print { display: none !important; } .multi-chart-card { break-inside: avoid; border: none; } }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+<div class="analysis-container">
+    <div class="page-header no-print">
+        <div>
+            <a href="{% url 'device_analysis' device_id=device_id %}" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Single Analysis
+            </a>
+            <h1 class="h4 fw-bold mt-2 mb-0" style="color: #1e293b;">Multi-Date Comparison</h1>
+        </div>
+
+        <form method="get" class="date-controls">
+            <input type="text" id="multiDatePicker" name="dates" placeholder="Pick dates..." value="{{ selected_dates }}">
+            <button type="submit" class="btn-update">Update</button>
+        </form>
+    </div>
+
+    <div id="multiChartsList">
+        {% if all_readings %}
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-calendar-plus fa-3x text-light mb-3"></i>
+                <p class="text-muted">Select one or more dates to generate comparative ChartG reports.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Init Flatpickr
+        flatpickr("#multiDatePicker", {
+            mode: "multiple",
+            dateFormat: "Y-m-d",
+            maxDate: "today"
+        });
+
+        const rawData = JSON.parse('{{ all_readings|escapejs }}');
+        const listContainer = document.getElementById('multiChartsList');
+
+        rawData.forEach((reading, index) => {
+            const card = document.createElement('div');
+            card.className = 'multi-chart-card';
+
+            // Calculate Stats
+            const temps = reading.temperatures.filter(t => t !== null);
+            const hasData = temps.length > 0;
+            const min = hasData ? Math.min(...temps).toFixed(1) : '--';
+            const max = hasData ? Math.max(...temps).toFixed(1) : '--';
+            const avg = hasData ? (temps.reduce((a,b) => a+b, 0) / temps.length).toFixed(1) : '--';
+
+            card.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0" style="color: #1a6f8b;">${reading.date}</h5>
+                    <span class="badge bg-light text-dark border">${temps.length} points</span>
+                </div>
+
+                <div class="chart-wrapper">
+                    <canvas id="chartG_${index}"></canvas>
+                </div>
+
+                <div class="stats-strip">
+                    <div class="stat-item"><span class="stat-label">Avg</span><span class="stat-val">${avg}°C</span></div>
+                    <div class="stat-item"><span class="stat-label">Min</span><span class="stat-val text-success">${min}°C</span></div>
+                    <div class="stat-item"><span class="stat-label">Max</span><span class="stat-val text-danger">${max}°C</span></div>
+                </div>
+            `;
+            listContainer.appendChild(card);
+
+            if (hasData) {
+                renderChartG(`chartG_${index}`, reading.timestamps, reading.temperatures);
+            }
+        });
+    });
+
+    function renderChartG(canvasId, labels, data) {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(26, 111, 139, 0.15)');
+        gradient.addColorStop(1, 'rgba(26, 111, 139, 0)');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels.map(ts => {
+                    const d = new Date(ts);
+                    return d.getHours().toString().padStart(2,'0') + ":" + d.getMinutes().toString().padStart(2,'0');
+                }),
+                datasets: [{
+                    data: data,
+                    borderColor: '#1a6f8b',
+                    borderWidth: 2.5,
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.4, // Essential for ChartG look
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12, font: { size: 10 } } },
+                    y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, callback: (v) => v + '°' } }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

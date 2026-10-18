@@ -1,0 +1,615 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Historical Report | {{ device_name }}{% endblock %}
+
+{% block content %}
+<style>
+    /* --- THEME VARIABLE ENGINE --- */
+    :root {
+        --bg-main: #0a0e14;
+        --bg-loader: #0f172a;
+        --card-bg: #0f172a;
+        --card-border: rgba(56, 189, 248, 0.1);
+        --text-header: #ffffff;
+        --text-sub: rgba(255, 255, 255, 0.4);
+        --input-bg: #1e293b;
+        --input-border: rgba(56, 189, 248, 0.3);
+        --terminal-blue: #38bdf8;
+        --glow-yellow: #fbbf24;
+        --soft-red: #ef4444;
+        --fs-overlay: rgba(10, 14, 20, 0.98);
+        --success-green: #10b981;
+    }
+
+    [data-theme="light"] {
+        --bg-main: #f1f5f9;
+        --bg-loader: #ffffff;
+        --card-bg: #ffffff;
+        --card-border: #e2e8f0;
+        --text-header: #1e293b;
+        --text-sub: #64748b;
+        --input-bg: #ffffff;
+        --input-border: #cbd5e1;
+        --terminal-blue: #0284c7;
+        --fs-overlay: #f1f5f9;
+    }
+
+    body {
+        background-color: var(--bg-main);
+        transition: background 0.3s ease;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        margin: 0; padding: 0;
+    }
+
+    .report-page { max-width: 1100px; margin: 0 auto; padding: 15px; }
+
+    /* --- PULSING YELLOW BUTTON --- */
+    @keyframes yellow-pulse {
+        0% { box-shadow: 0 0 5px rgba(251, 191, 36, 0.3); border-color: rgba(251, 191, 36, 0.4); }
+        50% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.6); border-color: rgba(251, 191, 36, 0.8); }
+        100% { box-shadow: 0 0 5px rgba(251, 191, 36, 0.3); border-color: rgba(251, 191, 36, 0.4); }
+    }
+
+    .btn-fs-pulsing {
+        background: rgba(251, 191, 36, 0.05); border: 2px solid var(--glow-yellow);
+        color: var(--glow-yellow); padding: 14px; border-radius: 12px;
+        font-weight: 900; font-size: 0.75rem; cursor: pointer;
+        animation: yellow-pulse 2s infinite; width: 100%; margin-bottom: 25px;
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        text-transform: uppercase; letter-spacing: 1px;
+        transition: all 0.3s ease;
+    }
+    .btn-fs-pulsing:hover { transform: scale(1.02); }
+
+    /* --- FLOATING CLOSE BUTTON --- */
+    .close-fs-btn {
+        position: fixed; top: 20px; right: 20px;
+        z-index: 99999; display: none;
+        background: var(--soft-red); color: white;
+        border: none; border-radius: 50%; width: 45px; height: 45px;
+        font-size: 1.2rem; cursor: pointer;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+        align-items: center; justify-content: center;
+    }
+
+    /* --- FULLSCREEN CONTAINER --- */
+    #print-zone:fullscreen {
+        background: var(--fs-overlay); padding: 15px; overflow-y: auto !important;
+        width: 100vw; height: 100vh;
+    }
+    #print-zone:fullscreen .close-fs-btn { display: flex; }
+
+    /* --- CHART CARD ARCHITECTURE --- */
+    .chartG-card {
+        background: var(--card-bg); border: 1px solid var(--card-border);
+        border-radius: 20px; padding: 18px; margin-bottom: 30px;
+        page-break-inside: avoid;
+        transition: all 0.3s ease;
+    }
+    .chartG-card:hover { border-color: var(--terminal-blue); }
+
+    .canvas-wrap {
+        height: 280px; width: 100%; position: relative;
+        min-height: 200px;
+    }
+
+    /* Stats Strip */
+    .stats-strip {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid var(--card-border);
+        padding-top: 15px; margin-top: 15px; gap: 5px;
+    }
+    .stat-b { text-align: center; font-family: 'Courier New', monospace; }
+    .stat-l { font-size: 10px; color: var(--text-sub); text-transform: uppercase; font-weight: 800; margin-bottom: 3px; }
+    .stat-v { font-size: 16px; font-weight: 900; color: var(--text-header); }
+
+    /* Header & Filter UI */
+    .header-flex {
+        background: rgba(56, 189, 248, 0.03); border-left: 5px solid var(--terminal-blue);
+        padding: 20px; border-radius: 0 20px 20px 0; margin-bottom: 25px;
+    }
+    .picker-box {
+        background: var(--input-bg) !important; border: 1px solid var(--input-border) !important;
+        padding: 12px; border-radius: 12px; color: var(--text-header) !important;
+        width: 100%; outline: none; font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+    .picker-box:focus { border-color: var(--terminal-blue) !important; box-shadow: 0 0 15px rgba(56, 189, 248, 0.2); }
+
+    .generate-btn {
+        background: var(--terminal-blue); color: #fff; border: none;
+        padding: 14px; border-radius: 12px; font-weight: 900;
+        cursor: pointer; text-transform: uppercase; font-size: 0.8rem;
+        transition: all 0.3s ease;
+        width: 100%;
+        white-space: nowrap;
+    }
+    .generate-btn:hover { opacity: 0.8; transform: scale(0.98); }
+    .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .generate-btn i { margin-right: 8px; }
+
+    /* No Data State */
+    .no-data-message {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        height: 100%; color: var(--text-sub); font-family: monospace;
+        font-size: 0.7rem; text-align: center;
+    }
+    .no-data-message i { font-size: 2.5rem; margin-bottom: 10px; opacity: 0.3; }
+
+    /* Print Button */
+    .print-btn {
+        width: 100%; background: rgba(255,255,255,0.05);
+        color: var(--text-header); border: 1px solid var(--card-border);
+        padding: 10px; border-radius: 10px; margin-bottom: 20px;
+        cursor: pointer; font-weight: 800; font-size: 0.7rem;
+        transition: all 0.3s ease;
+    }
+    .print-btn:hover { background: var(--terminal-blue); color: #fff; border-color: var(--terminal-blue); }
+
+    /* Loading Spinner */
+    #chart-loader {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: var(--bg-loader); z-index: 10000;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    #chart-loader.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
+    .spinner {
+        width: 50px; height: 50px;
+        border: 3px solid rgba(56, 189, 248, 0.1);
+        border-top: 3px solid var(--terminal-blue);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    .loader-text {
+        margin-top: 20px;
+        color: var(--terminal-blue);
+        font-family: monospace;
+        font-weight: 800;
+        font-size: 0.7rem;
+        letter-spacing: 2px;
+    }
+
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 15px;
+        align-items: end;
+    }
+
+    /* Print Styles */
+    @media print {
+        @page {
+            size: landscape;
+            margin: 0.5cm !important;
+        }
+
+        body { background: white !important; color: black !important; }
+        .no-p, #chart-loader, .close-fs-btn, .btn-fs-pulsing, .header-flex { display: none !important; }
+
+        .report-page { max-width: 100%; padding: 0; margin: 0; }
+        #print-zone { display: block !important; }
+
+        .chartG-card {
+            border: 1px solid #ddd !important;
+            background: white !important;
+            height: 9.8cm !important;
+            margin: 0 auto 0.2cm auto !important;
+            padding: 0.4cm !important;
+            border-radius: 0 !important;
+            page-break-inside: avoid !important;
+            page-break-after: auto !important;
+            box-sizing: border-box !important;
+        }
+
+        .canvas-wrap { height: 6.5cm !important; width: 100% !important; }
+        .stat-v { color: black !important; font-size: 14pt !important; }
+        .stat-l { color: #444 !important; font-size: 8pt !important; }
+        .stats-strip { border-top: 1px solid #eee !important; margin-top: 5px !important; padding-top: 5px !important; }
+        h6 { color: black !important; font-size: 10pt !important; margin-bottom: 5px !important; }
+    }
+
+    @media (max-width: 768px) {
+        .canvas-wrap { height: 220px; }
+        .stat-v { font-size: 14px; }
+        .header-flex { padding: 15px; }
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+        .generate-btn { white-space: normal; }
+    }
+
+    @media (max-width: 480px) {
+        .canvas-wrap { height: 180px; }
+        .chartG-card { padding: 12px; }
+        .stats-strip { padding-top: 10px; margin-top: 10px; }
+        .stat-v { font-size: 12px; }
+        .stat-l { font-size: 8px; }
+    }
+</style>
+
+<!-- LOADING OVERLAY -->
+<div id="chart-loader">
+    <div class="spinner"></div>
+    <p class="loader-text">LOADING TIMELINE DATA...</p>
+</div>
+
+<div class="report-page">
+    <!-- Header & Filters -->
+    <div class="no-p header-flex">
+        <h1 style="color: var(--text-header); font-size:1.1rem; font-weight:800; margin-bottom:18px; text-transform:uppercase;">
+            <i class="fas fa-microchip me-2" style="color: var(--terminal-blue);"></i>{{ device_name }}
+        </h1>
+
+        <form method="get" id="reportForm" class="form-grid" hx-boost="false">
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-size:9px; color:var(--terminal-blue); font-weight:800;">START DATE</label>
+                <input type="date" id="dateFrom" name="start" value="{{ start_date }}" class="picker-box" max="{{ today|date:'Y-m-d' }}">
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-size:9px; color:var(--terminal-blue); font-weight:800;">END DATE</label>
+                <input type="date" id="dateTo" name="end" value="{{ end_date }}" class="picker-box" max="{{ today|date:'Y-m-d' }}">
+            </div>
+            <button type="submit" class="generate-btn" id="generateBtn">
+                <i class="fas fa-sync-alt"></i> REFRESH
+            </button>
+        </form>
+    </div>
+
+    <!-- Action Buttons -->
+    {% if charts_list %}
+    <button class="btn-fs-pulsing no-p" onclick="enterFullscreen()">
+        <i class="fas fa-expand-arrows-alt"></i> OPEN FULLSCREEN TIMELINE
+    </button>
+
+    <button class="print-btn no-p" onclick="window.print()">
+        <i class="fas fa-print me-2"></i> PRINT LANDSCAPE REPORT (2 PER PAGE)
+    </button>
+    {% endif %}
+
+    <!-- Chart Display Zone -->
+    <div id="print-zone">
+        <button class="close-fs-btn no-p" onclick="exitFullscreen()">
+            <i class="fas fa-times"></i>
+        </button>
+
+        {% if charts_list %}
+            {% for day in charts_list %}
+            <div class="chartG-card" data-date="{{ day.date_title }}">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-family: monospace; font-size: 0.6rem; color: var(--terminal-blue); font-weight: 800;">
+                        <i class="fas fa-calendar-day me-1"></i>DAY {{ forloop.counter }}
+                    </span>
+                    <h6 style="font-family: monospace; font-size: 0.75rem; color: var(--text-header); margin: 0;">
+                        {{ day.date_title }}
+                    </h6>
+                    <span style="width: 30px;"></span>
+                </div>
+
+                <div class="canvas-wrap">
+                    {% if day.has_data %}
+                        <canvas class="chartG-canvas" data-labels='{{ day.labels_json|safe }}' data-values='{{ day.values_json|safe }}'></canvas>
+                    {% else %}
+                        <div class="no-data-message">
+                            <i class="fas fa-satellite-dish"></i>
+                            <span>NO SIGNAL FOR THIS PERIOD</span>
+                            <span style="font-size: 0.6rem; opacity: 0.5;">No temperature readings available</span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="stats-strip">
+                    <div class="stat-b">
+                        <div class="stat-l"><i class="fas fa-arrow-down me-1"></i>Minimum</div>
+                        <div class="stat-v" style="color:var(--terminal-blue)">{{ day.min }}°</div>
+                    </div>
+                    <div class="stat-b">
+                        <div class="stat-l"><i class="fas fa-equals me-1"></i>Average</div>
+                        <div class="stat-v" style="color:var(--glow-yellow)">{{ day.avg }}°</div>
+                    </div>
+                    <div class="stat-b">
+                        <div class="stat-l"><i class="fas fa-arrow-up me-1"></i>Peak</div>
+                        <div class="stat-v" style="color:var(--soft-red)">{{ day.max }}°</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="chartG-card" style="text-align: center; padding: 60px 20px;">
+                <i class="fas fa-chart-line" style="font-size: 3rem; color: var(--text-sub); opacity: 0.3; margin-bottom: 20px;"></i>
+                <h3 style="color: var(--text-header);">No Data Available</h3>
+                <p style="color: var(--text-sub);">No temperature readings found for the selected date range.</p>
+                <p style="color: var(--text-sub); font-size: 0.8rem;">Try selecting a different date range.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Chart.js Library (optimized load) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+    (function() {
+        'use strict';
+
+        // ============================================================
+        // 1. HIDE LOADER AS SOON AS POSSIBLE
+        // ============================================================
+        function hideLoader() {
+            const loader = document.getElementById('chart-loader');
+            if (loader) {
+                loader.classList.add('hidden');
+                // Hide completely after transition
+                setTimeout(function() {
+                    loader.style.display = 'none';
+                }, 500);
+            }
+        }
+
+        // Hide loader immediately if charts are already rendered
+        if (document.querySelector('.chartG-canvas')) {
+            hideLoader();
+        } else {
+            // If no charts, hide after a short delay
+            setTimeout(hideLoader, 1000);
+        }
+
+        // ============================================================
+        // 2. CHART INITIALIZATION - OPTIMIZED
+        // ============================================================
+        function initCharts() {
+            const canvases = document.querySelectorAll('.chartG-canvas');
+            if (!canvases.length) {
+                hideLoader();
+                return;
+            }
+
+            console.log(`Initializing ${canvases.length} charts...`);
+            let initializedCount = 0;
+
+            canvases.forEach(function(canvas, index) {
+                try {
+                    const ctx = canvas.getContext('2d');
+                    const labels = JSON.parse(canvas.getAttribute('data-labels') || '[]');
+                    const values = JSON.parse(canvas.getAttribute('data-values') || '[]');
+
+                    if (!labels.length || !values.length) {
+                        console.log(`Chart ${index}: No data, skipping`);
+                        initializedCount++;
+                        return;
+                    }
+
+                    // Get theme colors
+                    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+                    const accentColor = isDark ? '#38bdf8' : '#0284c7';
+                    const textColor = isDark ? 'rgba(255,255,255,0.4)' : '#64748b';
+                    const gridColor = isDark ? 'rgba(56, 189, 248, 0.1)' : '#e2e8f0';
+
+                    // Gradient
+                    const grad = ctx.createLinearGradient(0, 0, 0, 280);
+                    if (isDark) {
+                        grad.addColorStop(0, 'rgba(56, 189, 248, 0.15)');
+                        grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                    } else {
+                        grad.addColorStop(0, 'rgba(2, 132, 199, 0.1)');
+                        grad.addColorStop(1, 'rgba(2, 132, 199, 0)');
+                    }
+
+                    // Create chart
+                    const chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Temperature',
+                                data: values,
+                                borderColor: accentColor,
+                                borderWidth: 2,
+                                backgroundColor: grad,
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 1.5,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: accentColor,
+                                pointBorderColor: isDark ? '#0f172a' : '#ffffff',
+                                pointBorderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                mode: 'index',
+                                intersect: false,
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    enabled: true,
+                                    backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255,255,255,0.95)',
+                                    titleColor: accentColor,
+                                    titleFont: { size: 11, weight: '800' },
+                                    bodyFont: { family: 'monospace', size: 13 },
+                                    bodySpacing: 5,
+                                    padding: 12,
+                                    borderColor: accentColor,
+                                    borderWidth: 1,
+                                    displayColors: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return ` Temperature: ${context.parsed.y}°C`;
+                                        },
+                                        title: function(context) {
+                                            return ` Time: ${context[0].label}`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { display: false },
+                                    ticks: {
+                                        color: textColor,
+                                        font: { size: 9 },
+                                        maxTicksLimit: 15,
+                                        maxRotation: 30,
+                                        minRotation: 0
+                                    }
+                                },
+                                y: {
+                                    grid: { color: gridColor },
+                                    ticks: {
+                                        color: textColor,
+                                        font: { size: 9 },
+                                        callback: function(value) {
+                                            return value + '°';
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    // Store chart instance
+                    canvas._chart_instance = chart;
+                    initializedCount++;
+
+                    // Hide loader when all charts are done
+                    if (initializedCount === canvases.length) {
+                        setTimeout(hideLoader, 200);
+                    }
+
+                } catch (err) {
+                    console.error(`Error initializing chart ${index}:`, err);
+                    initializedCount++;
+                    if (initializedCount === canvases.length) {
+                        setTimeout(hideLoader, 200);
+                    }
+                }
+            });
+        }
+
+        // ============================================================
+        // 3. FULLSCREEN FUNCTIONS
+        // ============================================================
+        function enterFullscreen() {
+            const zone = document.getElementById('print-zone');
+            if (!zone) return;
+
+            const requestFS = zone.requestFullscreen || zone.webkitRequestFullscreen || zone.msRequestFullscreen;
+            if (requestFS) {
+                requestFS.call(zone).then(function() {
+                    if (screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock('landscape').catch(function() {});
+                    }
+                    setTimeout(resizeAllCharts, 300);
+                }).catch(function(err) {
+                    console.warn('Fullscreen request failed:', err);
+                });
+            }
+        }
+
+        function exitFullscreen() {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            }
+        }
+
+        function resizeAllCharts() {
+            document.querySelectorAll('.chartG-canvas').forEach(function(canvas) {
+                if (canvas._chart_instance) {
+                    canvas._chart_instance.resize();
+                }
+            });
+        }
+
+        // ============================================================
+        // 4. EVENT LISTENERS
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize charts
+            initCharts();
+
+            // Form submission handler
+            const form = document.getElementById('reportForm');
+            const btn = document.getElementById('generateBtn');
+
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    const loader = document.getElementById('chart-loader');
+                    if (loader) {
+                        loader.style.display = 'flex';
+                        loader.classList.remove('hidden');
+                    }
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> LOADING...';
+                    }
+                });
+            }
+
+            // Date validation - prevent future dates
+            const today = new Date().toISOString().split('T')[0];
+            document.querySelectorAll('input[type="date"]').forEach(function(input) {
+                input.setAttribute('max', today);
+            });
+
+            // Fullscreen change event
+            document.addEventListener('fullscreenchange', function() {
+                setTimeout(resizeAllCharts, 300);
+            });
+
+            // Window resize (debounced)
+            let resizeTimeout;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(resizeAllCharts, 200);
+            });
+
+            // Theme change observer
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.attributeName === 'data-theme') {
+                        // Reinitialize charts with new colors
+                        setTimeout(function() {
+                            // Destroy existing charts
+                            document.querySelectorAll('.chartG-canvas').forEach(function(canvas) {
+                                if (canvas._chart_instance) {
+                                    canvas._chart_instance.destroy();
+                                }
+                            });
+                            // Recreate charts
+                            initCharts();
+                        }, 100);
+                    }
+                });
+            });
+            observer.observe(document.documentElement, { attributes: true });
+        });
+
+        // ============================================================
+        // 5. EXPOSE FUNCTIONS TO GLOBAL SCOPE
+        // ============================================================
+        window.enterFullscreen = enterFullscreen;
+        window.exitFullscreen = exitFullscreen;
+        window.resizeAllCharts = resizeAllCharts;
+
+        // If charts are already in the DOM, initialize immediately
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initCharts);
+        } else {
+            // DOM already loaded, initialize
+            setTimeout(initCharts, 100);
+        }
+
+    })();
+</script>
+{% endblock %}

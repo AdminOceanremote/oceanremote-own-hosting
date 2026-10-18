@@ -1,0 +1,25 @@
+{
+  "name": "Oceamic II Monitor",
+  "short_name": "Oceamic II",
+  "description": "Monitor app for Oceamic II data",
+  "start_url": "https://esp8266.pythonanywhere.com/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/images/pic2.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/images/pic2.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

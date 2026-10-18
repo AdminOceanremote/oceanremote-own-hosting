@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temperature by Date</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <h1>View Nominal Temperature by Date</h1>
+
+    <form method="post" action="{% url 'temperature_by_date' %}">
+        {% csrf_token %}
+        <label for="date">Select Date:</label>
+        <input type="date" id="date" name="date" required>
+        <button type="submit">Get Temperature</button>
+    </form>
+
+    {% if nominal_temperatures %}
+        <h2>Nominal Temperatures:</h2>
+        <ul>
+        {% for device, temp in nominal_temperatures.items %}
+            <li>{{ device }}: {{ temp }}&deg;C</li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+</body>
+</html>

@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+{% block title %}System Logs | Oceamic{% endblock %}
+
+{% block content %}
+<style>
+    /* --- THEME VARIABLE ENGINE --- */
+    :root {
+        --terminal-blue: #38bdf8;
+        --soft-red: #ef4444;
+        --warning-orange: #f59e0b;
+        
+        /* Dark Mode Colors (Default) */
+        --bg-main: #020617;
+        --card-bg: #0f172a;
+        --card-border: rgba(56, 189, 248, 0.2);
+        --text-header: #ffffff;
+        --text-msg: #f8fafc;
+        --text-meta: #94a3b8;
+        --strip-bg: #1e293b;
+        --strip-border: #334155;
+        --close-btn: #64748b;
+        --icon-bg-info: rgba(56, 189, 248, 0.15);
+        --icon-bg-alert: rgba(239, 68, 68, 0.15);
+    }
+
+    [data-theme="light"] {
+        --bg-main: #f1f5f9;
+        --card-bg: #ffffff;
+        --card-border: #cbd5e1;
+        --text-header: #0f172a;
+        --text-msg: #1e293b;
+        --text-meta: #475569;
+        --strip-bg: #f8fafc;
+        --strip-border: #e2e8f0;
+        --close-btn: #64748b;
+        --icon-bg-info: rgba(2, 132, 199, 0.1);
+        --icon-bg-alert: rgba(220, 38, 38, 0.1);
+        
+        /* Adjusted Brand for Light Mode Visibility */
+        --terminal-blue: #0284c7;
+        --soft-red: #dc2626;
+        --warning-orange: #d97706;
+    }
+
+    body { 
+        background-color: var(--bg-main); 
+        transition: background 0.3s ease; 
+    }
+
+    /* --- OPS CENTER HEADER --- */
+    .page-header {
+        margin-bottom: 20px;
+        padding: 15px 10px;
+        border-left: 4px solid var(--terminal-blue);
+        background: var(--card-bg);
+        border-radius: 0 12px 12px 0;
+    }
+    .page-title {
+        font-weight: 800; 
+        color: var(--text-header); 
+        font-size: 1.25rem;
+        text-transform: uppercase; margin: 0;
+    }
+    .ops-tag {
+        font-family: 'Courier New', monospace; 
+        color: var(--terminal-blue);
+        font-weight: 700; font-size: 0.65rem; 
+        opacity: 0.9;
+    }
+
+    .notification-list { display: flex; flex-direction: column; gap: 12px; padding: 0 5px; }
+
+    /* --- NOTIF CARD --- */
+    .notif-card {
+        background: var(--card-bg);
+        border-radius: 16px;
+        padding: 16px;
+        border: 1px solid var(--card-border);
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        position: relative;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+    }
+
+    .notif-card.unread {
+        border-color: var(--terminal-blue);
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
+    }
+
+    .notif-icon {
+        width: 40px; height: 40px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; font-size: 1.1rem;
+    }
+
+    .icon-alert { 
+        background: var(--icon-bg-alert); 
+        color: var(--soft-red); 
+        border: 1px solid rgba(239, 68, 68, 0.3); 
+    }
+    .icon-info { 
+        background: var(--icon-bg-info); 
+        color: var(--terminal-blue); 
+        border: 1px solid rgba(56, 189, 248, 0.3); 
+    }
+
+    .notif-body { flex-grow: 1; min-width: 0; }
+
+    .notif-message {
+        font-size: 0.9rem; font-weight: 600; 
+        color: var(--text-msg);
+        margin-bottom: 10px; line-height: 1.4;
+        padding-right: 20px;
+    }
+
+    /* --- DATA READOUT STRIP --- */
+    .data-strip {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        background: var(--strip-bg);
+        border-radius: 10px;
+        width: fit-content;
+        border: 1px solid var(--strip-border);
+    }
+    .data-item { 
+        font-family: 'Courier New', monospace; 
+        font-size: 0.75rem; 
+        font-weight: 700; 
+    }
+    .label { 
+        color: var(--text-meta); 
+        margin-right: 6px; 
+        font-weight: 500; 
+    }
+    .val-crit { 
+        color: var(--soft-red); 
+        font-weight: 800;
+    }
+    .val-limit { 
+        color: var(--warning-orange); 
+        font-weight: 800;
+    }
+
+    .notif-meta {
+        display: flex; flex-wrap: wrap; gap: 16px;
+        font-size: 0.65rem; 
+        color: var(--text-meta);
+        font-family: 'Courier New', monospace; 
+        text-transform: uppercase;
+        align-items: center;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .meta-item i {
+        font-size: 0.7rem;
+        opacity: 0.7;
+    }
+
+    .meta-time { 
+        color: var(--terminal-blue); 
+        font-weight: 600;
+    }
+    
+    .device-tag {
+        background: rgba(56, 189, 248, 0.1); 
+        padding: 3px 8px; 
+        border-radius: 20px;
+        color: var(--terminal-blue); 
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        font-weight: 600;
+        font-size: 0.6rem;
+    }
+
+    .btn-stylealpha {
+        background: transparent; 
+        border: 1px solid var(--terminal-blue);
+        color: var(--terminal-blue); 
+        font-weight: 700; 
+        font-size: 0.7rem;
+        padding: 8px 20px; 
+        border-radius: 30px; 
+        text-transform: uppercase;
+        transition: 0.2s;
+        cursor: pointer;
+    }
+    
+    .btn-stylealpha:hover {
+        background: var(--terminal-blue);
+        color: white;
+    }
+
+    .notif-close {
+        position: absolute; top: 12px; right: 12px;
+        background: none; border: none; 
+        color: var(--close-btn); 
+        font-size: 0.9rem;
+        cursor: pointer; 
+        transition: 0.2s;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+    }
+    
+    .notif-close:hover { 
+        color: var(--soft-red);
+        background: rgba(239, 68, 68, 0.1);
+    }
+
+    .empty-state {
+        text-align: center; padding: 60px 20px; 
+        border: 1px dashed var(--card-border); 
+        border-radius: 20px;
+        background: var(--card-bg);
+    }
+    
+    .empty-state i {
+        color: var(--terminal-blue);
+        opacity: 0.3;
+        font-size: 3rem;
+        margin-bottom: 15px;
+    }
+    
+    .empty-state p {
+        color: var(--text-meta);
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+    }
+
+    @media (max-width: 360px) {
+        .notif-card { padding: 12px; }
+        .data-strip { gap: 8px; }
+        .notif-meta { gap: 8px; }
+    }
+</style>
+
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="page-title">System Logs</h1>
+        <div class="ops-tag">>_ LIVE_TELEMETRY_FEED</div>
+    </div>
+    {% if notifications %}
+    <button onclick="markAllRead()" class="btn-stylealpha">CLEAR_ALL</button>
+    {% endif %}
+</div>
+
+<div class="notification-list">
+    {% for n in notifications %}
+    <div class="notif-card {% if not n.is_read %}unread{% endif %}" id="notif-{{ n.id }}">
+        <div class="notif-icon {% if n.notification_type == 'ALERT' %}icon-alert{% else %}icon-info{% endif %}">
+            <i class="fas {% if n.notification_type == 'ALERT' %}fa-temperature-high{% else %}fa-circle-info{% endif %}"></i>
+        </div>
+
+        <div class="notif-body">
+            <div class="notif-message">{{ n.message }}</div>
+
+            {% if n.notification_type == 'ALERT' and n.alert %}
+            <div class="data-strip">
+                <div class="data-item">
+                    <span class="label">CURRENT:</span>
+                    <span class="val-crit">{{ n.alert.temperature|floatformat:1 }}°C</span>
+                </div>
+                <div class="data-item">
+                    <span class="label">THRESHOLD:</span>
+                    <span class="val-limit">{{ n.alert.threshold|floatformat:1 }}°C</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="notif-meta">
+                <span class="meta-item">
+                    <i class="far fa-calendar"></i> {{ n.created_at|date:"d M" }}
+                </span>
+                <span class="meta-item">
+                    <i class="far fa-clock"></i> <span class="meta-time">{{ n.created_at|date:"H:i:s" }}</span>
+                </span>
+                {% if n.device %}
+                <span class="meta-item"><span class="device-tag"><i class="fas fa-microchip me-1"></i>{{ n.device.name }}</span></span>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if not n.is_read %}
+        <button onclick="markRead('{{ n.id }}')" class="notif-close" title="Mark as read">
+            <i class="fas fa-times"></i>
+        </button>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="empty-state">
+        <i class="fas fa-check-circle"></i>
+        <p>ALL SYSTEMS OPERATING WITHIN PARAMETERS</p>
+        <p style="font-size: 0.65rem; margin-top: 10px;">NO ACTIVE NOTIFICATIONS</p>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function markRead(id) {
+    const card = document.getElementById(`notif-${id}`);
+    if (!card) return;
+    
+    // Visual feedback
+    card.style.opacity = '0.5';
+    card.style.transition = 'opacity 0.3s ease';
+    
+    fetch(`/notifications/mark-read/${id}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}', 
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if(response.ok) {
+            card.classList.remove('unread');
+            const btn = card.querySelector('.notif-close');
+            if(btn) {
+                btn.style.opacity = '0';
+                setTimeout(() => btn.remove(), 300);
+            }
+            card.style.opacity = '1';
+        } else {
+            card.style.opacity = '1';
+        }
+    })
+    .catch(() => {
+        card.style.opacity = '1';
+    });
+}
+
+function markAllRead() {
+    fetch("{% url 'mark_all_read' %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}', 
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if(response.ok) {
+            // Smooth fade out all unread indicators
+            document.querySelectorAll('.notif-card.unread').forEach(card => {
+                card.classList.remove('unread');
+                const btn = card.querySelector('.notif-close');
+                if(btn) {
+                    btn.style.opacity = '0';
+                    setTimeout(() => btn.remove(), 300);
+                }
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

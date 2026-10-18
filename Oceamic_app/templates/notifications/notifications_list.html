@@ -1,0 +1,66 @@
+<!-- notifications_list.html -->
+<div class="notification-dropdown">
+    <button class="notification-bell">
+        <i class="fas fa-bell"></i>
+        <span class="badge" id="unread-count">{{ unread_count }}</span>
+    </button>
+    <div class="notification-panel">
+        {% for notification in notifications %}
+        <div class="notification-item {% if not notification.is_read %}unread{% endif %}"
+             data-notification-id="{{ notification.id }}">
+            <div class="notification-icon">
+                {% if notification.notification_type == 'ALERT' %}⚠️
+                {% elif notification.notification_type == 'WARN' %}❗
+                {% else %}ℹ️{% endif %}
+            </div>
+            <div class="notification-content">
+                <p>{{ notification.message }}</p>
+                <small>{{ notification.created_at|timesince }} ago</small>
+            </div>
+        </div>
+        {% empty %}
+        <div class="notification-empty">No new notifications</div>
+        {% endfor %}
+        <div class="notification-footer">
+            <button id="mark-all-read">Mark All Read</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Play sound when new notification arrives
+function playNotificationSound() {
+    const audio = new Audio('{% static "sounds/alert.mp3" %}');
+    audio.play().catch(e => console.log('Audio play failed:', e));
+}
+
+// Check for new notifications
+function checkNewNotifications() {
+    const previousCount = parseInt(document.getElementById('unread-count').textContent);
+
+    fetch('/notifications/get_unread/')
+        .then(response => response.json())
+        .then(data => {
+            const currentCount = data.unread_count;
+            document.getElementById('unread-count').textContent = currentCount;
+
+            if (currentCount > previousCount) {
+                playNotificationSound();
+                // Show browser notification for the newest alert
+                if (data.notifications.length > 0) {
+                    const latest = data.notifications[0];
+                    showBrowserNotification('Temperature Alert', latest.message);
+                }
+            }
+        });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Check every 30 seconds
+    setInterval(checkNewNotifications, 30000);
+
+    // Also check when notification bell is clicked
+    document.querySelector('.notification-bell').addEventListener('click', checkNewNotifications);
+});
+</script>

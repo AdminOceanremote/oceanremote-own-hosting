@@ -1,0 +1,146 @@
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Push Notification Settings</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <button id="subscribe-btn" class="btn btn-primary">
+                            Enable Push Notifications
+                        </button>
+                        <div id="subscription-status" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const subscribeBtn = document.getElementById('subscribe-btn');
+    const statusDiv = document.getElementById('subscription-status');
+
+    // Check for service worker and push manager support
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        statusDiv.textContent = 'Push notifications are not supported in your browser.';
+        subscribeBtn.disabled = true;
+        return;
+    }
+
+    // Register service worker
+        .then(function(registration) {
+            console.log('Service Worker registered');
+
+            // Check current subscription status
+            registration.pushManager.getSubscription()
+                .then(function(subscription) {
+                    updateBtn(subscription);
+
+                    // Handle button click
+                    subscribeBtn.addEventListener('click', function() {
+                        if (subscription) {
+                            unsubscribeUser(subscription);
+                        } else {
+                            subscribeUser(registration);
+                        }
+                    });
+                });
+        })
+        .catch(function(err) {
+            console.error('Service Worker registration failed:', err);
+            statusDiv.textContent = 'Failed to register Service Worker.';
+            subscribeBtn.disabled = true;
+        });
+
+    function subscribeUser(registration) {
+        const applicationServerKey = urlBase64ToUint8Array('{{ vapid_public_key }}');
+
+        registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey
+        })
+        .then(function(subscription) {
+            console.log('User subscribed:', subscription);
+
+            // Send subscription to server
+            return fetch('{% url "save-subscription" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(subscription)
+            });
+        })
+        .then(function(response) {
+            if (response.ok) {
+                return registration.pushManager.getSubscription();
+            }
+            throw new Error('Failed to save subscription');
+        })
+        .then(function(subscription) {
+            updateBtn(subscription);
+            statusDiv.textContent = 'Push notifications enabled successfully!';
+        })
+        .catch(function(err) {
+            console.error('Subscription failed:', err);
+            statusDiv.textContent = 'Failed to enable push notifications.';
+        });
+    }
+
+    function unsubscribeUser(subscription) {
+        subscription.unsubscribe()
+            .then(function() {
+                return fetch('{% url "delete-subscription" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify(subscription)
+                });
+            })
+            .then(function(response) {
+                if (response.ok) {
+                    updateBtn(null);
+                    statusDiv.textContent = 'Push notifications disabled.';
+                }
+            })
+            .catch(function(err) {
+                console.error('Unsubscription failed:', err);
+                statusDiv.textContent = 'Failed to disable push notifications.';
+            });
+    }
+
+    function updateBtn(subscription) {
+        if (subscription) {
+            subscribeBtn.textContent = 'Disable Push Notifications';
+        } else {
+            subscribeBtn.textContent = 'Enable Push Notifications';
+        }
+    }
+
+    // Helper function to convert VAPID key
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+});
+</script>
+{% endblock %}

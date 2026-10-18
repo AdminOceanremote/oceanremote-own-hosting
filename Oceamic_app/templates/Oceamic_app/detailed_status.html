@@ -1,0 +1,790 @@
+{% extends "base.html" %}
+{% block title %}Thermal Analysis | Oceamic{% endblock %}
+
+{% block content %}
+<style>
+    /* --- THEME VARIABLE ENGINE --- */
+    :root {
+        --atomic-black: #0a0e14;
+        --card-gradient: linear-gradient(145deg, #1a1a2e, #0f3460);
+        --card-border: rgba(255, 255, 255, 0.05);
+        --pod-bg: rgba(0, 0, 0, 0.3);
+        --text-main: #e2e8f0;
+        --text-bold: #ffffff;
+
+        --electric-blue: #00d2ff;
+        --neon-glow: rgba(0, 210, 255, 0.3);
+        --cop-green: #10b981;
+        --evap-blue: #38bdf8;
+        --cond-orange: #f97316;
+        --comp-purple: #a78bfa;
+
+        --error-color: #ef4444;
+        --error-glow: rgba(239, 68, 68, 0.3);
+        
+        --popup-bg: #1e293b;
+        --popup-border: #38bdf8;
+    }
+
+    [data-theme="light"] {
+        --atomic-black: #f1f5f9;
+        --card-gradient: linear-gradient(145deg, #ffffff, #f8fafc);
+        --card-border: #e2e8f0;
+        --pod-bg: #ffffff;
+        --text-main: #475569;
+        --text-bold: #1e293b;
+
+        --electric-blue: #0284c7;
+        --neon-glow: rgba(2, 132, 199, 0.15);
+        --cop-green: #15803d;
+        --evap-blue: #0369a1;
+        --cond-orange: #c2410c;
+        --comp-purple: #6d28d9;
+        --error-color: #dc2626;
+        --error-glow: rgba(220, 38, 38, 0.2);
+        
+        --popup-bg: #ffffff;
+        --popup-border: #0284c7;
+    }
+
+    body {
+        background-color: var(--atomic-black);
+        color: var(--text-main);
+        transition: background 0.3s ease;
+        font-family: 'Inter', sans-serif;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        position: relative;
+    }
+
+    /* --- MOBILE-FRIENDLY POPUP MODAL --- */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease;
+        padding: 15px;
+        box-sizing: border-box;
+        overflow-y: auto;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .info-modal {
+        background: var(--card-gradient);
+        border: 2px solid var(--popup-border);
+        border-radius: 28px;
+        padding: 25px 20px;
+        max-width: 500px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        position: relative;
+        animation: slideUp 0.4s ease;
+        margin: auto;
+    }
+
+    @keyframes slideUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid var(--card-border);
+        flex-wrap: wrap;
+    }
+
+    .modal-icon {
+        width: 45px;
+        height: 45px;
+        min-width: 45px;
+        background: var(--electric-blue);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: var(--atomic-black);
+    }
+
+    .modal-title {
+        font-size: 1.2rem;
+        font-weight: 800;
+        color: var(--electric-blue);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin: 0;
+        line-height: 1.3;
+        word-break: break-word;
+    }
+
+    .modal-content {
+        color: var(--text-main);
+        line-height: 1.5;
+        margin-bottom: 25px;
+        font-size: 0.95rem;
+    }
+
+    .modal-content p {
+        margin-bottom: 15px;
+    }
+
+    .modal-content .highlight {
+        color: var(--electric-blue);
+        font-weight: 700;
+        display: inline-block;
+    }
+
+    .modal-content ul {
+        margin-bottom: 15px;
+        padding-left: 20px;
+    }
+
+    .modal-content li {
+        margin-bottom: 5px;
+    }
+
+    .modal-content .note {
+        background: var(--pod-bg);
+        padding: 15px;
+        border-radius: 12px;
+        border-left: 4px solid var(--electric-blue);
+        font-size: 0.9rem;
+        margin: 15px 0;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: center;
+        margin-top: 10px;
+    }
+
+    .btn-confirm {
+        background: var(--electric-blue);
+        color: var(--atomic-black);
+        border: none;
+        padding: 15px 30px;
+        border-radius: 16px;
+        font-weight: 800;
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 20px var(--neon-glow);
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .btn-confirm:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 30px var(--electric-blue);
+    }
+
+    .btn-confirm:active {
+        transform: scale(0.95);
+    }
+
+    /* Rest of your existing styles... */
+    .page-header {
+        margin-bottom: 2rem;
+        padding: 20px;
+        background: linear-gradient(90deg, var(--neon-glow) 0%, transparent 100%);
+        border-left: 5px solid var(--electric-blue);
+    }
+    .page-title {
+        font-family: 'Courier New', monospace;
+        font-weight: 900;
+        color: var(--text-bold);
+        font-size: 1.4rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin: 0;
+    }
+    .sub-title {
+        font-size: 0.8rem;
+        color: var(--electric-blue);
+        font-family: monospace;
+    }
+
+    .status-line {
+        font-size: 0.65rem;
+        color: var(--electric-blue);
+        font-weight: 800;
+        margin-top: 5px;
+        transition: 0.3s;
+    }
+    .sync-active {
+        text-shadow: 0 0 10px var(--electric-blue);
+        color: #fff !important;
+    }
+
+    /* Device Grid - 2 columns on desktop */
+    .device-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    @media (min-width: 768px) {
+        .device-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    /* Minimal Card */
+    .device-card {
+        background: var(--card-gradient);
+        border-radius: 20px;
+        border: 1px solid var(--card-border);
+        padding: 18px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    .device-card::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 3px;
+        background: linear-gradient(90deg, transparent, var(--electric-blue), transparent);
+    }
+
+    /* Error state for card */
+    .device-card.error-sensor {
+        border-color: var(--error-color);
+        opacity: 0.9;
+        box-shadow: 0 0 20px var(--error-glow);
+    }
+    .device-card.error-sensor::before {
+        background: linear-gradient(90deg, transparent, var(--error-color), transparent);
+    }
+
+    /* Header */
+    .device-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--card-border);
+    }
+    .device-name {
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--text-bold);
+    }
+    .device-spec {
+        font-size: 0.65rem;
+        color: #94a3b8;
+        font-family: monospace;
+        background: var(--pod-bg);
+        padding: 3px 8px;
+        border-radius: 12px;
+    }
+
+    /* Room Temp Display */
+    .room-temp {
+        text-align: center;
+        margin-bottom: 15px;
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--electric-blue);
+    }
+
+    /* Error text style */
+    .error-text {
+        color: var(--error-color) !important;
+        font-weight: 800;
+    }
+
+    /* Metrics Grid - 2x2 */
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .metric {
+        background: var(--pod-bg);
+        border-radius: 14px;
+        padding: 10px;
+        border: 1px solid var(--card-border);
+    }
+    .metric-label {
+        font-size: 0.55rem;
+        text-transform: uppercase;
+        color: #94a3b8;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        margin-bottom: 4px;
+    }
+    .metric-value {
+        font-size: 1.1rem;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+    .metric-unit {
+        font-size: 0.55rem;
+        color: #94a3b8;
+        margin-left: 2px;
+    }
+
+    /* Color coding */
+    .evap { color: var(--evap-blue); }
+    .cond { color: var(--cond-orange); }
+    .comp { color: var(--comp-purple); }
+    .cop { color: var(--cop-green); }
+
+    /* COP special display */
+    .cop-metric {
+        grid-column: span 2;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--pod-bg);
+        border-radius: 14px;
+        padding: 10px 15px;
+        border: 1px solid var(--card-border);
+        margin-top: 5px;
+    }
+    .cop-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: #94a3b8;
+        font-weight: 700;
+    }
+    .cop-value {
+        font-size: 1.4rem;
+        font-weight: 900;
+        color: var(--cop-green);
+    }
+
+    /* Footer */
+    .card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 12px;
+        padding-top: 8px;
+        font-size: 0.6rem;
+        color: #94a3b8;
+        border-top: 1px solid var(--card-border);
+    }
+    .live-indicator {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .pulse {
+        width: 6px;
+        height: 6px;
+        background: var(--cop-green);
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; transform: scale(1); }
+        100% { opacity: 0; transform: scale(2.5); }
+    }
+
+    /* Small mobile adjustments */
+    @media (max-width: 480px) {
+        .modal-header {
+            gap: 8px;
+        }
+        .modal-icon {
+            width: 35px;
+            height: 35px;
+            min-width: 35px;
+            font-size: 1.2rem;
+        }
+        .modal-title {
+            font-size: 1rem;
+        }
+        .modal-content {
+            font-size: 0.85rem;
+        }
+        .btn-confirm {
+            padding: 12px 20px;
+            font-size: 0.9rem;
+        }
+        .info-modal {
+            padding: 20px 15px;
+        }
+    }
+</style>
+
+<!-- Popup Modal - ALWAYS SHOWS when template loads -->
+<div id="infoModal" class="modal-overlay" style="display: flex;">
+    <div class="info-modal">
+        <div class="modal-header">
+            <div class="modal-icon">
+                <i class="fas fa-microchip"></i>
+            </div>
+            <h2 class="modal-title">Information Technique</h2>
+        </div>
+        
+        <div class="modal-content">
+            <p>
+                <span class="highlight">Ce tableau affiche uniquement la température réelle</span> 
+                mesurée par les capteurs dans chaque chambre.
+            </p>
+            
+            <p>
+                Les valeurs de <span class="highlight">puissance (évaporateur, condenseur, compresseur), 
+                courant électrique et COP</span> sont calculées automatiquement à partir :
+            </p>
+            
+            <ul>
+                <li>de la température réelle de la chambre</li>
+                <li>des spécifications techniques des compresseurs installés</li>
+            </ul>
+            
+            <div class="note">
+                <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+                <strong>Note :</strong> Dès que des capteurs spécifiques seront installés aux points 
+                stratégiques de l'installation frigorifique, les données affichées deviendront des mesures réelles.
+            </div>
+            
+            <p style="margin-top: 15px; font-style: italic; color: var(--electric-blue); text-align: center;">
+                "Données calculées selon les caractéristiques techniques de votre installation"
+            </p>
+        </div>
+        
+        <div class="modal-footer">
+            <button class="btn-confirm" onclick="dismissModal()">
+                <i class="fas fa-check-circle me-2"></i>J'AI COMPRIS
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="page-title">THERMAL ANALYSIS</h1>
+            <div class="sub-title">R404A · Real-time calculations</div>
+        </div>
+        <div class="status-line" id="status-line">
+            <i class="fas fa-sync fa-spin me-1" id="sync-icon"></i> LIVE
+        </div>
+    </div>
+</div>
+
+<div class="device-grid" id="devices-container">
+    {% for device in devices %}
+    <div class="device-card" id="card-{{ device.device_id }}">
+        <div class="device-header">
+            <span class="device-name">{{ device.name }}</span>
+            <span class="device-spec">{{ device.compressors }} × {{ device.power }}hp</span>
+        </div>
+
+        <div class="room-temp" id="temp-{{ device.device_id }}">
+            {% if device.room_temp is not None %}
+                {{ device.room_temp|floatformat:2 }}°C
+            {% else %}
+                <span class="error-text">ERROR</span>
+            {% endif %}
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric">
+                <div class="metric-label">EVAP</div>
+                <div>
+                    <span class="metric-value evap" id="evap-temp-{{ device.device_id }}">
+                        {% if device.evap_temp is not None %}
+                            {{ device.evap_temp|floatformat:2 }}
+                        {% else %}
+                            <span class="error-text">ERR</span>
+                        {% endif %}
+                    </span>
+                    <span class="metric-unit">°C</span>
+                </div>
+                <div>
+                    <span class="metric-value evap" id="evap-power-{{ device.device_id }}">
+                        {% if device.evap_power is not None %}
+                            {{ device.evap_power|floatformat:2 }}
+                        {% else %}
+                            <span class="error-text">ERR</span>
+                        {% endif %}
+                    </span>
+                    <span class="metric-unit">kW</span>
+                </div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">COND</div>
+                <div>
+                    <span class="metric-value cond" id="cond-temp-{{ device.device_id }}">
+                        {% if device.cond_temp is not None %}
+                            {{ device.cond_temp|floatformat:2 }}
+                        {% else %}
+                            <span class="error-text">ERR</span>
+                        {% endif %}
+                    </span>
+                    <span class="metric-unit">°C</span>
+                </div>
+                <div>
+                    <span class="metric-value cond" id="cond-power-{{ device.device_id }}">
+                        {% if device.cond_power is not None %}
+                            {{ device.cond_power|floatformat:2 }}
+                        {% else %}
+                            <span class="error-text">ERR</span>
+                        {% endif %}
+                    </span>
+                    <span class="metric-unit">kW</span>
+                </div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">COMP</div>
+                <div>
+                    <span class="metric-value comp" id="comp-current-{{ device.device_id }}">
+                        {% if device.comp_current is not None %}
+                            {{ device.comp_current|floatformat:2 }}
+                        {% else %}
+                            <span class="error-text">ERR</span>
+                        {% endif %}
+                    </span>
+                    <span class="metric-unit">A</span>
+                </div>
+                <div>
+                    <span class="metric-value comp" id="comp-power-{{ device.device_id }}">
+                        {% if device.comp_power is not None %}
+                            {{ device.comp_power|floatformat:2 }}
+                        {% else %}
+                            <span class="error-text">ERR</span>
+                        {% endif %}
+                    </span>
+                    <span class="metric-unit">kW</span>
+                </div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">BP/HP</div>
+                <div>
+                    <span class="metric-value" id="bp-{{ device.device_id }}">
+                        {% if device.bp is not None %}
+                            {{ device.bp|floatformat:2 }}
+                        {% else %}
+                            <span class="error-text">ERR</span>
+                        {% endif %}
+                    </span>
+                    <span class="metric-unit">bar</span>
+                </div>
+                <div>
+                    <span class="metric-value" id="hp-{{ device.device_id }}">
+                        {% if device.hp is not None %}
+                            {{ device.hp|floatformat:2 }}
+                        {% else %}
+                            <span class="error-text">ERR</span>
+                        {% endif %}
+                    </span>
+                    <span class="metric-unit">bar</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="cop-metric">
+            <span class="cop-label">COP</span>
+            <span class="cop-value" id="cop-{{ device.device_id }}">
+                {% if device.cop is not None %}
+                    {{ device.cop|floatformat:2 }}
+                {% else %}
+                    <span class="error-text">ERR</span>
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="card-footer">
+            <div class="live-indicator">
+                <span class="pulse"></span>
+                <span>LIVE</span>
+            </div>
+            <span id="time-{{ device.device_id }}">updated just now</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    // Store previous error states
+    const errorStates = {};
+    const previousValues = {};
+
+    // NO localStorage - modal shows EVERY time
+    function dismissModal() {
+        document.getElementById('infoModal').style.display = 'none';
+    }
+
+    // --- VALIDATION FUNCTION (exactly like choice template) ---
+    function isValidTemperature(val) {
+        if (val === null || val === undefined) return false;
+        if (val === '--' || val === '-' || val === '' || val === 0) return false;
+        if (isNaN(parseFloat(val))) return false;
+        return true;
+    }
+
+    // Helper to update all metrics for a device
+    function updateDeviceMetrics(device, hasValidData) {
+        const card = document.getElementById(`card-${device.id}`);
+        
+        // Update card error class
+        if (!hasValidData) {
+            card?.classList.add('error-sensor');
+        } else {
+            card?.classList.remove('error-sensor');
+        }
+        
+        // Update room temperature
+        const tempEl = document.getElementById(`temp-${device.id}`);
+        if (tempEl) {
+            if (!hasValidData) {
+                tempEl.innerHTML = '<span class="error-text">ERROR</span>';
+            } else {
+                tempEl.innerText = device.room_temp.toFixed(2) + '°C';
+            }
+        }
+        
+        // Helper to update individual metric
+        function updateMetric(id, value, unit = '') {
+            const el = document.getElementById(id);
+            if (!el) return;
+            
+            if (!hasValidData || value === null || value === undefined) {
+                el.innerHTML = '<span class="error-text">ERR</span>';
+            } else {
+                el.innerText = value;
+            }
+        }
+        
+        // Update all metrics
+        updateMetric(`evap-temp-${device.id}`, device.evap_temp?.toFixed(2));
+        updateMetric(`evap-power-${device.id}`, device.evap_power?.toFixed(2));
+        updateMetric(`cond-temp-${device.id}`, device.cond_temp?.toFixed(2));
+        updateMetric(`cond-power-${device.id}`, device.cond_power?.toFixed(2));
+        updateMetric(`comp-current-${device.id}`, device.comp_current?.toFixed(2));
+        updateMetric(`comp-power-${device.id}`, device.comp_power?.toFixed(2));
+        updateMetric(`bp-${device.id}`, device.bp?.toFixed(2));
+        updateMetric(`hp-${device.id}`, device.hp?.toFixed(2));
+        updateMetric(`cop-${device.id}`, device.cop?.toFixed(2));
+    }
+
+    // --- CACHE-BUSTING FETCH HELPER ---
+    async function fetchWithCacheBusting(url, options = {}) {
+        const timestamp = new Date().getTime();
+        const separator = url.includes('?') ? '&' : '?';
+        const cacheBustedUrl = `${url}${separator}_=${timestamp}`;
+        
+        const defaultHeaders = {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        };
+        
+        const fetchOptions = {
+            ...options,
+            headers: {
+                ...defaultHeaders,
+                ...(options.headers || {})
+            }
+        };
+        
+        const response = await fetch(cacheBustedUrl, fetchOptions);
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('Received non-JSON response - page may have been cached');
+            window.location.reload();
+            throw new Error('Non-JSON response received');
+        }
+        
+        return response;
+    }
+
+    async function refreshData() {
+        const statusLine = document.getElementById('status-line');
+        try {
+            const response = await fetchWithCacheBusting(window.location.href);
+            
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const data = await response.json();
+            console.log("Received thermal data:", data);
+
+            if (data.devices && Array.isArray(data.devices)) {
+                data.devices.forEach(device => {
+                    const hasValidData = isValidTemperature(device.room_temp);
+                    const previousErrorState = errorStates[device.id] || false;
+                    
+                    // Check if error state changed
+                    if (previousErrorState !== !hasValidData) {
+                        console.log(`Device ${device.id} error state changed to:`, !hasValidData);
+                        updateDeviceMetrics(device, hasValidData);
+                        errorStates[device.id] = !hasValidData;
+                    } else if (hasValidData) {
+                        // For valid data, check if temperature changed significantly
+                        const tempEl = document.getElementById(`temp-${device.id}`);
+                        if (tempEl) {
+                            const currentDisplay = tempEl.innerText;
+                            const newDisplay = device.room_temp.toFixed(2) + '°C';
+                            
+                            if (currentDisplay !== newDisplay) {
+                                updateDeviceMetrics(device, hasValidData);
+                            }
+                        }
+                    }
+                    
+                    // Always update timestamp
+                    const timeEl = document.getElementById(`time-${device.id}`);
+                    if (timeEl) {
+                        timeEl.innerText = `updated ${device.seconds_ago}s ago`;
+                    }
+                });
+            }
+
+            statusLine.classList.add('sync-active');
+            statusLine.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i> LIVE';
+            setTimeout(() => statusLine.classList.remove('sync-active'), 800);
+
+        } catch (error) {
+            console.error('Refresh error:', error);
+            statusLine.style.color = '#ef4444';
+            statusLine.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> CONNECTION LOST';
+        }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize error states
+        document.querySelectorAll('[id^="card-"]').forEach(card => {
+            const id = card.id.replace('card-', '');
+            const tempEl = document.getElementById(`temp-${id}`);
+            if (tempEl) {
+                const hasError = tempEl.innerText.includes('ERROR');
+                errorStates[id] = hasError;
+            }
+        });
+        
+        // Start updates
+        refreshData();
+        setInterval(refreshData, 5000);
+    });
+</script>
+{% endblock %}

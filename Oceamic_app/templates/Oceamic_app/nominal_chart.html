@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nominal Temperature Chart for {{ device.device_id }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Nominal Temperature Chart for {{ device.device_id }}</h1>
+        <button onclick="window.location.href='/'">Home</button>
+    </header>
+    <div style="width: 75%;">
+        <canvas id="nominalTemperatureChart"></canvas>
+    </div>
+    <footer>
+        <p>Oceamic, all rights reserved</p>
+    </footer>
+    <script>
+        var ctx = document.getElementById('nominalTemperatureChart').getContext('2d');
+        var nominalTemperatureChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], // Dates
+                datasets: [{
+                    label: 'Nominal Temperature',
+                    data: [], // Nominal temperatures
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'month'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Temperature (°C)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Fetch data from server and update chart
+        fetch('/get_nominal_temperatures/{{ device.device_id }}/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Fetched data:', data); // Log fetched data
+                nominalTemperatureChart.data.labels = data.labels;
+                nominalTemperatureChart.data.datasets[0].data = data.nominal_temperatures;
+                nominalTemperatureChart.update();
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    </script>
+</body>
+</html>

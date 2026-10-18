@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Humidity Chart</title>
+    {% load static %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --ocean-blue: #1a6f8b;
+            --light-blue: #d4f0f7;
+            --dark-blue: #0d4b63;
+            --glass-blue: rgba(26, 111, 139, 0.7);
+            --magic-blue: rgba(64, 164, 223, 0.6);
+            --vivid-blue: #00a8e8;
+            --alert-red: #ff4757;
+        }
+
+        /* === UPDATED HEADER STYLES FROM TEMPLATE 2 === */
+        .header {
+            display: flex;
+            align-items: stretch;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), var(--magic-blue));
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            width: 100%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            position: fixed;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .header-buttons {
+            display: flex;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .home-btn, .print-multiple-btn, .logout-btn, .device-id {
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            padding: 0 8px;
+            font-size: 0.8rem;
+            height: 40px;
+            margin: 0;
+            border-radius: 0;
+            box-shadow: none;
+            flex-shrink: 1;
+        }
+
+        .home-btn {
+            background: linear-gradient(135deg, var(--vivid-blue), var(--ocean-blue));
+            flex: 1;
+        }
+
+        .print-multiple-btn {
+            background: linear-gradient(135deg, #28a745, #1e7e34);
+            flex: 1.5;
+        }
+
+        .device-id {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
+            color: yellow;
+            flex: 2;
+            backdrop-filter: blur(5px);
+            border-left: 1px solid rgba(255, 255, 255, 0.2);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.75rem;
+            padding: 0 5px;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #ff4757, #cc0000);
+            flex: 1;
+        }
+
+        .home-btn:hover, .print-multiple-btn:hover, .logout-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        /* === UPDATED FOOTER STYLES FROM TEMPLATE 2 === */
+        footer {
+            width: 100%;
+            background: linear-gradient(135deg, rgba(13, 75, 99, 0.8), rgba(0, 0, 0, 0.3));
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 0.9rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.1) 50%,
+                transparent 100%
+            );
+            animation: footerShine 8s infinite;
+        }
+
+        @keyframes footerShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* === ORIGINAL TEMPLATE 1 BODY STYLES === */
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: #ffffff;
+            color: #333;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .container {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 60px 30px 50px;
+            overflow-y: auto;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 550px;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .printable-content, .printable-content * {
+                visibility: visible;
+            }
+            .printable-content {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+            }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .home-btn, .print-multiple-btn, .logout-btn, .device-id {
+                font-size: 0.7rem;
+                padding: 0 5px;
+                height: 36px;
+            }
+
+            .device-id {
+                font-size: 0.65rem;
+            }
+
+            .print-multiple-btn {
+                flex: 1.5;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .home-btn, .logout-btn {
+                font-size: 0.6rem;
+            }
+
+            .print-multiple-btn {
+                font-size: 0.55rem;
+            }
+
+            .device-id {
+                font-size: 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Updated Header with Template 2 styling -->
+    <div class="header">
+        <div class="header-buttons">
+            <a href="{% url 'home2' %}" class="home-btn">
+                <i class="fas fa-home"></i> Home
+            </a>
+
+            <a href="{% url 'multi_humidity_chart' device_id=device_id %}" class="print-multiple-btn">
+                <i class="fas fa-chart-line"></i> Multi Chart
+            </a>
+
+            <div class="device-id">
+                {% if device_id == 'device1' %}Chambre négative-1 unité-2{% endif %}
+                {% if device_id == 'device2' %}Chambre positive unité-2{% endif %}
+                {% if device_id == 'device3' %}Chambre des ingrédients unité-2{% endif %}
+                {% if device_id == 'device4' %}Chambre positive unité-1{% endif %}
+                {% if device_id == 'device5' %}Chambre négative-2 unité-2{% endif %}
+                {% if device_id == 'device6' %}Chambre des ingrédients unité-1{% endif %}
+            </div>
+
+            <form class="logout-form" method="POST" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Original Template 1 Content -->
+    <div class="container printable-content">
+        <form method="get">
+            <label for="date">Select Date:</label>
+            <input type="text" id="date" name="date" value="{{ selected_date }}">
+            <button type="submit">View</button>
+        </form>
+        <div class="chart-container">
+            <canvas id="humidityChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Updated Footer with Template 2 styling -->
+    <footer>&copy; Oceamic Laayoune II - All rights reserved</footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            flatpickr("#date", {
+                dateFormat: "Y-m-d"
+            });
+
+            const labels = {{ labels|safe }};
+            const data = {{ data|safe }};
+            const selectedDate = "{{ selected_date }}";
+
+            const deviceNames = {
+                'device1': 'Chambre négative-1 unité-2',
+                'device2': 'Chambre positive unité-2',
+                'device3': 'Chambre des ingrédients unité-2',
+                'device4': 'Chambre positive unité-1',
+                'device5': 'Chambre négative-2 unité-2',
+            };
+
+            const deviceName = deviceNames["{{ device_id }}"] || 'Unknown Device';
+
+            const ctx = document.getElementById('humidityChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Humidity (%)',
+                        data: data,
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Humidity Chart for ${selectedDate} - ${deviceName}`
+                        },
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time',
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Humidity (%)',
+                            },
+                            beginAtZero: true,
+                            max: 100,
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

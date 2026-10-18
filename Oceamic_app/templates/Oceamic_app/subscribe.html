@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Enable Push Notifications</h2>
+    <button id="subscribe-button" class="btn btn-primary">Enable Notifications</button>
+    <div id="subscription-status" class="mt-3"></div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const subscribeButton = document.getElementById('subscribe-button');
+    const statusElement = document.getElementById('subscription-status');
+
+    // Check if service workers and push are supported
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        statusElement.textContent = 'Push notifications are not supported in your browser.';
+        subscribeButton.disabled = true;
+        return;
+    }
+
+    // Register service worker
+        .then(function(registration) {
+            console.log('Service Worker registered');
+
+            subscribeButton.addEventListener('click', function() {
+                subscribeUser(registration);
+            });
+
+            // Check current subscription status
+            registration.pushManager.getSubscription()
+                .then(function(subscription) {
+                    if (subscription) {
+                        updateSubscriptionStatus(true);
+                    }
+                });
+        })
+        .catch(function(err) {
+            console.log('Service Worker registration failed:', err);
+            statusElement.textContent = 'Failed to register service worker.';
+            subscribeButton.disabled = true;
+        });
+
+    function subscribeUser(registration) {
+        const applicationServerKey = urlBase64ToUint8Array('{{ vapid_public_key }}');
+
+        registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey
+        })
+        .then(function(subscription) {
+            console.log('User is subscribed:', subscription);
+
+            // Send subscription to server
+            return fetch('/save-subscription/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(subscription)
+            });
+        })
+        .then(function(response) {
+            if (response.ok) {
+                updateSubscriptionStatus(true);
+            }
+        })
+        .catch(function(err) {
+            console.log('Failed to subscribe the user:', err);
+            statusElement.textContent = 'Failed to subscribe to notifications.';
+        });
+    }
+
+    function updateSubscriptionStatus(isSubscribed) {
+        if (isSubscribed) {
+            subscribeButton.textContent = 'Disable Notifications';
+            statusElement.textContent = 'You are subscribed to push notifications.';
+            subscribeButton.onclick = function() {
+                unsubscribeUser();
+            };
+        } else {
+            subscribeButton.textContent = 'Enable Notifications';
+            statusElement.textContent = 'You are not subscribed to push notifications.';
+            subscribeButton.onclick = function() {
+                navigator.serviceWorker.ready.then(function(registration) {
+                    subscribeUser(registration);
+                });
+            };
+        }
+    }
+
+    function unsubscribeUser() {
+        navigator.serviceWorker.ready
+            .then(function(registration) {
+                return registration.pushManager.getSubscription();
+            })
+            .then(function(subscription) {
+                if (subscription) {
+                    return subscription.unsubscribe();
+                }
+            })
+            .then(function() {
+                return fetch('/delete-subscription/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+            })
+            .then(function(response) {
+                if (response.ok) {
+                    updateSubscriptionStatus(false);
+                }
+            })
+            .catch(function(err) {
+                console.log('Error unsubscribing', err);
+            });
+    }
+
+    // Helper function
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+});
+</script>
+{% endblock %}
