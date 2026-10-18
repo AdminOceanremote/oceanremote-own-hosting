@@ -1,4 +1,5 @@
-﻿"""OceanRemote Own-Hosting Wizard"""
+"""OceanRemote Own-Hosting Wizard"""
+import os
 import re
 import secrets
 import sys
@@ -167,6 +168,16 @@ def print_summary(a, su_password, env_path, wsgi_path, checklist_path):
     console.print()
 
 
+
+def create_superuser(a, password):
+    import subprocess
+    env = os.environ.copy()
+    env['DJANGO_SUPERUSER_USERNAME'] = a['superuser']
+    env['DJANGO_SUPERUSER_EMAIL'] = a['superuser_email']
+    env['DJANGO_SUPERUSER_PASSWORD'] = password
+    r = subprocess.run([sys.executable, 'manage.py', 'createsuperuser', '--noinput'], env=env, capture_output=True, text=True)
+    return r.returncode == 0
+
 def main():
     banner()
     a = ask_all()
@@ -174,6 +185,10 @@ def main():
     su = make_superuser_password()
     console.print("\n[cyan]Writing .env...[/cyan]")
     env_path = write_env(a, sk)
+    console.print("[cyan]Creating superuser...[/cyan]")
+    ok = create_superuser(a, su)
+    if not ok:
+        console.print("[yellow]Superuser not created (may already exist).[/yellow]")
     console.print("[cyan]Writing WSGI...[/cyan]")
     wsgi_path = write_wsgi(a)
     console.print("[cyan]Writing checklist...[/cyan]")
