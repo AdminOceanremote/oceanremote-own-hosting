@@ -457,13 +457,15 @@ def update_temperature(request):
         device_id = request.POST.get('device_id')
         temperature = request.POST.get('temperature')
 
-        # Check if the temperature is a valid number
-        try:
-            temperature = float(temperature)
-            if temperature != temperature:  # Check for nan
-                temperature = None  # Set temperature to None for nan values
-        except ValueError:
-            temperature = None  # Set temperature to None for invalid values
+        if temperature == '-':
+            temperature = None
+        else:
+            try:
+                temperature = float(temperature)
+                if temperature != temperature:
+                    temperature = None
+            except ValueError:
+                temperature = None
 
         device, created = Device.objects.get_or_create(device_id=device_id)
 
