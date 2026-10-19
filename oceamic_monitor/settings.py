@@ -23,7 +23,9 @@ INSTALLED_APPS = [
     "django.contrib.humanize",
     "Oceamic_app",
     "pwa",
-    "webpush",`n    "rest_framework",`n    "rest_framework.authtoken",
+    "webpush",
+    "rest_framework",
+    "rest_framework.authtoken",
 ]
 
 MIDDLEWARE = [
