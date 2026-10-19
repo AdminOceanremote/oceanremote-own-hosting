@@ -2569,3 +2569,16 @@ def app_update_device(request, device_id):
 
     device.save()
     return JsonResponse({'success': True})
+@csrf_exempt
+@require_POST
+def app_delete_device(request, device_id):
+    user = _check_app_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+    device = Device.objects.filter(device_id=device_id).first()
+    if not device:
+        return JsonResponse({'success': False, 'error': 'Device not found'}, status=404)
+    
+    device.delete()
+    return JsonResponse({'success': True})
