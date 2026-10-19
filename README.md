@@ -1,92 +1,54 @@
 # OceanRemote Own-Hosting
 
-Self-host your own cold-chain temperature monitoring server on **PythonAnywhere** - free tier works.
+Self-host your own cold-chain temperature monitoring server on **PythonAnywhere** - free tier works perfectly.
 
-The companion **WPF desktop client** (OceanMonitor2) connects to any server built from this repo.
+The companion **WPF Desktop Client** (OceanRemote Monitor) connects to any server built from this repo to monitor your sensors, generate firmware, and print PDF reports.
 
 ## What you get
-
-- Django backend (Oceamic_app + oceamic_monitor) with REST API
-- Login, device management, history charts, alerts, automation rules
-- Web dashboard + admin panel
-- PWA + Web Push
-- Firmware-compatible with ESP8266, ESP32, Pico W
-- Setup wizard that generates your .env and WSGI file
+- **Django Backend** with a REST API and a beautiful dark-mode web dashboard.
+- **Device Management** (rename, calibrate, delete).
+- **Historical Charts** (24H Log, 30D Trend, PDF Reports).
+- **Alerts & Notifications** via Web Push.
+- **Mobile-Ready PWA** (Install the web app on your phone).
+- **Firmware Generator** for ESP8266, ESP32, and Raspberry Pi Pico W.
+- **1-Click Installer** that configures everything automatically.
 
 ## Prerequisites
+1. A free **PythonAnywhere** account.
+2. An **API Token** from your PythonAnywhere account. 
+   *(Go to Account -> API Token -> Create a new API token. Copy it).*
 
-- A free [PythonAnywhere](https://www.pythonanywhere.com/) account
-- A GitHub account (to fork this repo, or just clone it directly)
-- Python 3.10+
+## 1-Minute Setup (The Magic Way)
 
-## 5-minute setup
+You do not need to install anything on your computer. You do not need to clone, edit files, or configure WSGI manually.
 
-### 1. On your computer - generate config
+1. Open a **Bash Console** on PythonAnywhere (Consoles -> Bash).
+2. Paste this exact command and hit Enter:
 
-    git clone https://github.com/<your-github>/oceanremote-own-hosting.git
-    cd oceanremote-own-hosting
-    python -m venv .venv
-    source .venv/bin/activate    # Windows: .venv\Scripts\Activate.ps1
-    pip install -r requirements.txt
-    python wizard.py
+git clone https://github.com/AdminOceanremote/oceanremote-own-hosting.git && cd oceanremote-own-hosting && bash bootstrap.sh
 
-The wizard asks:
+The script will:
+- Create a virtual environment.
+- Install all Python requirements.
+- Automatically create your web app via the PythonAnywhere API.
+- Ask you for a superuser username, email, and password.
+- Configure the WSGI file and static mapping.
+- Reload the server.
 
-- Your PythonAnywhere username
-- A repo folder name
-- A virtualenv name
-- A superuser username + email
+**That's it!** Your server will be live at https://your-username.pythonanywhere.com.
 
-It generates:
+## Desktop Client (Windows)
 
-- `.env` - secrets + allowed hosts
-- `deploy/pythonanywhere_wsgi.py` - WSGI to paste into PythonAnywhere
-- `deploy/PA_CHECKLIST.md` - step-by-step deploy guide
+To monitor your data locally, generate firmware, or print PDF reports, download and install the WPF desktop client. 
 
-
-### 2. On PythonAnywhere - deploy
-
-Follow `deploy/PA_CHECKLIST.md` step by step. Roughly:
-
-1. Open a Bash console
-2. `git clone` this repo
-3. Create a virtualenv, `pip install -r requirements.txt`
-4. `python wizard.py` (same answers as step 1)
-5. `python manage.py migrate`
-6. `python manage.py createsuperuser`
-7. `python manage.py collectstatic --noinput`
-8. Create the Web app in the PythonAnywhere dashboard
-9. Paste the WSGI file
-10. Add static mapping
-11. Reload
-
-Full details in `deploy/PA_CHECKLIST.md`.
-
-## Environment variables
-
-See `.env.example`. The important ones:
-
-| Variable | Purpose |
-|---|---|
-| `DJANGO_SECRET_KEY` | Django secret key |
-| `DJANGO_ALLOWED_HOSTS` | Comma-separated hosts |
-| `DJANGO_CSRF_TRUSTED_ORIGINS` | Comma-separated https origins |
-| `DEBUG` | False in production |
-
-
-## Connecting the WPF client
-
-In the desktop client Settings, set Server URL to:
-
-    https://<your-username>.pythonanywhere.com
-
-Log in with your superuser credentials.
+In the app Settings, set your Server URL to https://your-username.pythonanywhere.com and log in with the superuser credentials you created.
 
 ## Firmware
-
-Firmware for ESP8266, ESP32, and Pico W is generated from the web dashboard. Flash it, enter your WiFi credentials via the captive portal, and the device registers automatically.
+You don't need to write code. Use the Desktop App's **Firmware Generator** to:
+1. Select your board (ESP32, ESP8266 D1 Mini/Large, Pico W).
+2. Add as many sensors as your board supports (DHT22, DS18B20, NTC).
+3. Enter your WiFi credentials.
+4. Click **Generate Code** and copy it to the Arduino IDE.
 
 ## License
-
 MIT
-
