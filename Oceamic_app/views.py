@@ -2186,3 +2186,361 @@ def public_api_latest(request):
 
 
 
+
+# ============================================================
+# WINDOWS APP API — LOGIN + DEVICES + HISTORY
+# ============================================================
+
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import authenticate
+from django.db.models import Avg, Min, Max
+
+@csrf_exempt
+@require_POST
+def app_login(request):
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+
+    if not username or not password:
+        return JsonResponse({'success': False, 'error': 'Missing credentials'}, status=400)
+
+    user = authenticate(request, username=username, password=password)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Invalid credentials'}, status=401)
+
+    if not user.is_active:
+        return JsonResponse({'success': False, 'error': 'Account disabled'}, status=403)
+
+    token, _ = Token.objects.get_or_create(user=user)
+
+    return JsonResponse({
+        'success': True,
+        'token': token.key,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'is_staff': user.is_staff,
+        }
+    })
+
+def _check_app_token(request):
+    auth = request.headers.get('Authorization', '')
+    if not auth.startswith('Token '):
+        return None
+    key = auth.split(' ', 1)[1].strip()
+    try:
+        return Token.objects.select_related('user').get(key=key).user
+    except Token.DoesNotExist:
+        return None
+
+@require_GET
+def app_devices(request):
+    user = _check_app_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+    devices = Device.objects.all().order_by('device_id')
+    out = []
+    for d in devices:
+        latest_t = TemperatureReading.objects.filter(device=d).order_by('-timestamp').first()
+        latest_h = HumidityReading.objects.filter(device=d).order_by('-timestamp').first()
+
+        temp_val = None
+        if latest_t and latest_t.temperature is not None:
+            temp_val = float(latest_t.temperature)
+
+        hum_val = None
+        if latest_h and latest_h.humidity is not None:
+            hum_val = float(latest_h.humidity)
+
+        online = False
+        if latest_t and (timezone.now() - latest_t.timestamp).total_seconds() < 300:
+            online = True
+
+        out.append({
+            'device_id': d.device_id,
+            'name': d.name or d.device_id,
+            'temperature': temp_val,
+            'humidity': hum_val,
+            'timestamp': latest_t.timestamp.isoformat() if latest_t else None,
+            'status': 'online' if online else 'offline',
+        })
+
+    return JsonResponse({'success': True, 'devices': out})
+
+@require_GET
+def app_history_day(request, device_id):
+    user = _check_app_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+    device = get_object_or_404(Device, device_id=device_id)
+    date_str = request.GET.get('date', timezone.now().date().isoformat())
+
+    try:
+        start = timezone.make_aware(datetime.strptime(date_str, '%Y-%m-%d'))
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Invalid date format'}, status=400)
+
+    end = start + timedelta(days=1)
+
+    readings = TemperatureReading.objects.filter(
+        device=device,
+        timestamp__range=(start, end),
+        temperature__isnull=False
+    ).order_by('timestamp')
+
+    timestamps, temperatures = [], []
+    last_added = None
+    for r in readings:
+        if last_added is None or (r.timestamp - last_added).total_seconds() >= 300:
+            timestamps.append(r.timestamp.isoformat())
+            temperatures.append(float(r.temperature))
+            last_added = r.timestamp
+
+    stats = {
+        'min': round(min(temperatures), 1) if temperatures else None,
+        'max': round(max(temperatures), 1) if temperatures else None,
+        'avg': round(sum(temperatures) / len(temperatures), 1) if temperatures else None,
+    }
+
+    return JsonResponse({
+        'success': True,
+        'device_id': device.device_id,
+        'device_name': device.name or device.device_id,
+        'date': date_str,
+        'timestamps': timestamps,
+        'temperatures': temperatures,
+        'stats': stats,
+    })
+
+@require_GET
+def app_history_range(request, device_id):
+    user = _check_app_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+    device = get_object_or_404(Device, device_id=device_id)
+    start_str = request.GET.get('start')
+    end_str = request.GET.get('end')
+
+    if not start_str or not end_str:
+        return JsonResponse({'success': False, 'error': 'start and end required'}, status=400)
+
+    try:
+        start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Invalid date format'}, status=400)
+
+    daily = TemperatureReading.objects.filter(
+        device=device,
+        timestamp__date__range=[start_date, end_date],
+        temperature__isnull=False
+    ).values('timestamp__date').annotate(
+        avg_temp=Avg('temperature'),
+        min_temp=Min('temperature'),
+        max_temp=Max('temperature')
+    ).order_by('timestamp__date')
+
+    days = []
+    for row in daily:
+        days.append({
+            'date': row['timestamp__date'].isoformat(),
+            'avg': round(float(row['avg_temp']), 1),
+            'min': round(float(row['min_temp']), 1),
+            'max': round(float(row['max_temp']), 1),
+        })
+
+    return JsonResponse({
+        'success': True,
+        'device_id': device.device_id,
+        'device_name': device.name or device.device_id,
+        'start': start_str,
+        'end': end_str,
+        'days': days,
+    })
+
+@require_GET
+def app_report(request, device_id):
+    user = _check_app_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+    device = get_object_or_404(Device, device_id=device_id)
+    start_str = request.GET.get('start')
+    end_str = request.GET.get('end')
+    if not start_str or not end_str:
+        return JsonResponse({'success': False, 'error': 'start and end required'}, status=400)
+
+    try:
+        start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Invalid date'}, status=400)
+
+    days_out = []
+    cur = start_date
+    while cur <= end_date:
+        readings = TemperatureReading.objects.filter(
+            device=device,
+            timestamp__date=cur,
+            temperature__isnull=False
+        ).order_by('timestamp')
+
+        timestamps, temps = [], []
+        last = None
+        for r in readings:
+            if last is None or (r.timestamp - last).total_seconds() >= 300:
+                timestamps.append(r.timestamp.isoformat())
+                temps.append(float(r.temperature))
+                last = r.timestamp
+
+        if timestamps:
+            days_out.append({
+                'date': cur.isoformat(),
+                'timestamps': timestamps,
+                'temperatures': temps
+            })
+        cur += timedelta(days=1)
+
+    return JsonResponse({
+        'success': True,
+        'device_id': device.device_id,
+        'start': start_str,
+        'end': end_str,
+        'days': days_out
+    })
+
+@require_GET
+def app_report_fast(request, device_id):
+    user = _check_app_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+    start_str = request.GET.get('start')
+    end_str = request.GET.get('end')
+    if not start_str or not end_str:
+        return JsonResponse({'success': False, 'error': 'start and end required'}, status=400)
+
+    cache_key = f"app_report_{device_id}_{start_str}_{end_str}"
+    cached = cache.get(cache_key)
+    if cached:
+        return JsonResponse(cached)
+
+    device = get_object_or_404(Device, device_id=device_id)
+
+    try:
+        start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Invalid date'}, status=400)
+
+    readings = TemperatureReading.objects.filter(
+        device=device,
+        timestamp__date__range=[start_date, end_date],
+        temperature__isnull=False
+    ).order_by('timestamp').values('timestamp', 'temperature')
+
+    from collections import defaultdict
+    days_data = defaultdict(list)
+    for r in readings:
+        days_data[r['timestamp'].date()].append((r['timestamp'], float(r['temperature'])))
+
+    days_out = []
+    cur = start_date
+    while cur <= end_date:
+        bucket = days_data.get(cur, [])
+        timestamps, temps = [], []
+        last = None
+        for ts, v in bucket:
+            if last is None or (ts - last).total_seconds() >= 300:
+                timestamps.append(ts.isoformat())
+                temps.append(v)
+                last = ts
+        if timestamps:
+            days_out.append({
+                'date': cur.isoformat(),
+                'timestamps': timestamps,
+                'temperatures': temps
+            })
+        cur += timedelta(days=1)
+
+    payload = {
+        'success': True,
+        'device_id': device.device_id,
+        'start': start_str,
+        'end': end_str,
+        'days': days_out
+    }
+    cache.set(cache_key, payload, 300)
+    return JsonResponse(payload)
+
+@require_GET
+def app_notifications(request):
+    user = _check_app_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+    device_id = request.GET.get('device_id')
+    date_str = request.GET.get('date')
+
+    qs = Notification.objects.select_related('device', 'alert').all().order_by('-created_at')
+
+    if device_id:
+        qs = qs.filter(device__device_id=device_id)
+    if date_str:
+        try:
+            d = datetime.strptime(date_str, '%Y-%m-%d').date()
+            qs = qs.filter(created_at__date=d)
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Invalid date'}, status=400)
+
+    qs = qs[:300]
+
+    data = []
+    for n in qs:
+        data.append({
+            'id': n.id,
+            'message': n.message,
+            'type': n.notification_type,
+            'is_read': n.is_read,
+            'device_id': n.device.device_id if n.device else None,
+            'device_name': n.device.name if n.device else 'SYS',
+            'temperature': float(n.alert.temperature) if n.alert and n.alert.temperature is not None else None,
+            'threshold': float(n.alert.threshold) if n.alert and n.alert.threshold is not None else None,
+            'created_at': n.created_at.isoformat(),
+        })
+
+    return JsonResponse({'success': True, 'notifications': data})
+
+@csrf_exempt
+@require_POST
+def app_mark_notification_read(request, notification_id):
+    user = _check_app_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+    try:
+        n = Notification.objects.get(id=notification_id)
+        n.is_read = True
+        n.save(update_fields=['is_read'])
+        return JsonResponse({'success': True})
+    except Notification.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Not found'}, status=404)
+
+@csrf_exempt
+@require_POST
+def app_mark_all_notifications_read(request):
+    user = _check_app_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+    Notification.objects.filter(is_read=False).update(is_read=True)
+    return JsonResponse({'success': True})

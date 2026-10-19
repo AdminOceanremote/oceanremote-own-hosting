@@ -99,4 +99,15 @@ urlpatterns = [
     # --- 13. WEBPUSH SYSTEM ---
     path('save_subscription/', views.save_subscription, name='save_subscription'),
     path('webpush/', include('webpush.urls')),
+
+    # --- 14. WINDOWS APP API ---
+    path('api/app/report/<str:device_id>/', views.app_report, name='app_report'),
+    path('api/app/report-fast/<str:device_id>/', views.app_report_fast, name='app_report_fast'),
+    path('api/app/notifications/', views.app_notifications, name='app_notifications'),
+    path('api/app/notifications/<int:notification_id>/read/', views.app_mark_notification_read, name='app_mark_notification_read'),
+    path('api/app/notifications/mark-all-read/', views.app_mark_all_notifications_read, name='app_mark_all_read'),
+    path('api/app/login/', views.app_login, name='app_login'),
+    path('api/app/devices/', views.app_devices, name='app_devices'),
+    path('api/app/history/<str:device_id>/', views.app_history_day, name='app_history_day'),
+    path('api/app/history/<str:device_id>/range/', views.app_history_range, name='app_history_range'),
 ]
