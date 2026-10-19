@@ -2544,3 +2544,27 @@ def app_mark_all_notifications_read(request):
 
     Notification.objects.filter(is_read=False).update(is_read=True)
     return JsonResponse({'success': True})
+
+@csrf_exempt
+@require_POST
+def app_update_device(request, device_id):
+    user = _check_app_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+    device = get_object_or_404(Device, device_id=device_id)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+    if 'name' in data:
+        device.name = data['name']
+    if 'offset' in data:
+        try:
+            device.temperature_offset = float(data['offset'])
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Invalid offset'}, status=400)
+
+    device.save()
+    return JsonResponse({'success': True})
