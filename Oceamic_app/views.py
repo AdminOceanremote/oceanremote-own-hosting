@@ -2270,6 +2270,7 @@ def app_devices(request):
             'humidity': hum_val,
             'timestamp': latest_t.timestamp.isoformat() if latest_t else None,
             'status': 'online' if online else 'offline',
+            'offset': d.temperature_offset,
         })
 
     return JsonResponse({'success': True, 'devices': out})
