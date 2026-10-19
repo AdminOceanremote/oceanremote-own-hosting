@@ -111,4 +111,5 @@ urlpatterns = [
     path('api/app/history/<str:device_id>/', views.app_history_day, name='app_history_day'),
     path('api/app/history/<str:device_id>/range/', views.app_history_range, name='app_history_range'),
     path('api/app/device/<str:device_id>/update/', views.app_update_device, name='app_update_device'),
+    path('api/app/device/<str:device_id>/delete/', views.app_delete_device, name='app_delete_device'),
 ]
