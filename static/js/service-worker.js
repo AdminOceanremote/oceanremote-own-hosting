@@ -1,5 +1,5 @@
 // We use V5 to force the browser to dump all old "undefined" memory
-const CACHE_NAME = 'oceamic-v2026-v5';
+const CACHE_NAME = 'oceanremote-v2026-v5';
 const PRECACHE_URLS = [
     '/',
     '/static/css/style.css',
@@ -8,7 +8,7 @@ const PRECACHE_URLS = [
     '/static/audio/notification.mp3'
 ];
 
-console.log("Oceamic Master SW V5 Active");
+console.log("OceanRemote Master SW V5 Active");
 
 self.addEventListener('install', event => {
     self.skipWaiting(); 
@@ -39,7 +39,7 @@ self.addEventListener('push', function(event) {
     }
 
     // THE FIX: Hard-code this so "undefined" is physically impossible
-    const forcedTitle = "Oceamic II Alert";
+    const forcedTitle = "OceanRemote Alert";
     
     // Check all possible fields for the message body
     const message = data.body || data.message || data.head || "Environmental Update";

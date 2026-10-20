@@ -1,8 +1,8 @@
 {
-  "name": "Oceamic II Monitor",
-  "short_name": "Oceamic II",
-  "description": "Monitor app for Oceamic II data",
-  "start_url": "https://esp8266.pythonanywhere.com/",
+  "name": "OceanRemote Monitor",
+  "short_name": "OceanRemote",
+  "description": "Monitor app for OceanRemote data",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
